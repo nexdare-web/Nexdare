@@ -8,7 +8,7 @@
     "web": "expo start --web",
     "web:build": "expo export --platform web"
   },
-  "dependencies": {
+  "dependencies": {"@expo/metro-runtime": "~6.1.2",
     "expo": "~54.0.37",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
