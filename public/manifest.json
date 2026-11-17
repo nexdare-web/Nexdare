@@ -1,0 +1,37 @@
+{
+  "id": "/",
+  "name": "NexDare",
+  "short_name": "NexDare",
+  "description": "NexDare - Truth & Dare battle for two. Private, end-to-end encrypted chat and game.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#0b0014",
+  "lang": "en",
+  "categories": [
+    "games",
+    "social"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
