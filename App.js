@@ -118,6 +118,28 @@ const randomId = () => Math.random().toString(36).slice(2, 12) + Date.now().toSt
 const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const cleanHtml = (t) =>
   t.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+const MAX_DM_FILE = 2 * 1024 * 1024;
+const fmtSize = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round((n || 0) / 1024)) + ' KB');
+const readAsDataUrl = (file) => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result);
+  r.onerror = () => rej(new Error('File padh nahi paye'));
+  r.readAsDataURL(file);
+});
+const compressImage = (dataUrl) => new Promise((res, rej) => {
+  const img = new window.Image();
+  img.onload = () => {
+    const max = 1280;
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * scale);
+    c.height = Math.round(img.height * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    res(c.toDataURL('image/jpeg', 0.72));
+  };
+  img.onerror = () => rej(new Error('Photo khul nahi payi'));
+  img.src = dataUrl;
+});
 const cleanAI = (t) => String(t).replace(/\*\*/g, '').replace(/^\* /gm, '• ');
 
 // ---- Firebase Web SDK loader (only used for "Continue with Google") ----
@@ -152,7 +174,13 @@ const loadFirebase = () => {
 const subtle = typeof crypto !== 'undefined' && crypto.subtle ? crypto.subtle : null;
 const ECDH = { name: 'ECDH', namedCurve: 'P-256' };
 const enc8 = (t) => new TextEncoder().encode(t);
-const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const b64 = (buf) => {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(bin);
+};
 const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
 const hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 const cleanPub = (k) => ({ kty: k.kty, crv: k.crv, x: k.x, y: k.y });
@@ -488,6 +516,7 @@ export default function App() {
   const lastChat = useRef('');
   const lastDm = useRef('');
   const dmScrollRef = useRef(null);
+  const dmImgLoading = useRef({});
 
   const [profile, setProfile] = useState({ name: '', bio: '', avatar: '😎', friendCode: '' });
   const [friends, setFriends] = useState([]);
@@ -525,6 +554,9 @@ export default function App() {
   const [dmText, setDmText] = useState('');
   const [dmSel, setDmSel] = useState(null);
   const [dmHidden, setDmHidden] = useState([]);
+  const [pubError, setPubError] = useState('');
+  const [dmImgs, setDmImgs] = useState({});
+  const [dmBusy, setDmBusy] = useState(false);
 
   const t = (key) => (translations[uiLang] && translations[uiLang][key]) || translations.en[key] || key;
 
@@ -879,6 +911,7 @@ export default function App() {
 
   const openDm = (f) => {
     setDmFriend(f); setDmShared(null); setDmPlain([]); setDmRaw({}); setDmPubStr('');
+    setDmImgs({}); dmImgLoading.current = {}; setDmBusy(false);
     lastDm.current = '';
     setDmSel(null); setDmText(''); setError(''); setNotice('');
     let h = [];
@@ -908,6 +941,68 @@ export default function App() {
     } catch (e) { setError('Message nahi gaya: ' + e.message); playSound('error', soundOn); }
   };
 
+  const sendDmFile = async (file) => {
+    if (!dmFriend || !dmShared || !currentUser) { setNotice('Friend ki encryption abhi ready nahi hai.'); return; }
+    setError(''); setNotice('');
+    const isImg = !!file.type && file.type.indexOf('image/') === 0;
+    if (!isImg && file.size > MAX_DM_FILE) { setError('File badi hai. 2 MB tak ki file bhej sakte ho.'); return; }
+    if (file.size > 25 * 1024 * 1024) { setError('Ye file bahut badi hai.'); return; }
+    setDmBusy(true);
+    try {
+      let dataUrl = await readAsDataUrl(file);
+      let type = file.type || 'application/octet-stream';
+      if (isImg) { dataUrl = await compressImage(dataUrl); type = 'image/jpeg'; }
+      if (dataUrl.length > 3000000) { setError('File badi hai. 2 MB tak ki file bhej sakte ho.'); setDmBusy(false); return; }
+      const fid = randomId();
+      const encD = await encryptText(dmShared.aes, dataUrl);
+      await set(ref(db, 'dm/' + dmFriend.chatId + '/files/' + fid), {
+        iv: encD.iv, ct: encD.ct, from: currentUser.uid, t: Date.now(),
+      });
+      const caption = dmText.trim();
+      const meta = JSON.stringify({ __f: 1, id: fid, name: file.name || 'file', type, size: file.size, text: caption });
+      const encM = await encryptText(dmShared.aes, meta);
+      await push(ref(db, 'dm/' + dmFriend.chatId + '/messages'), {
+        from: currentUser.uid, iv: encM.iv, ct: encM.ct, t: Date.now(),
+      });
+      setDmText('');
+      playSound('msg', soundOn);
+    } catch (e) {
+      setError('File nahi gayi: ' + e.message); playSound('error', soundOn);
+    }
+    setDmBusy(false);
+  };
+
+  const pickDmFile = () => {
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    if (!dmShared) { setNotice('Friend ki encryption abhi ready nahi hai.'); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = () => {
+      const file = input.files && input.files[0];
+      if (file) sendDmFile(file);
+    };
+    input.click();
+  };
+
+  const downloadDmFile = async (f) => {
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    try {
+      let data = dmImgs[f.id];
+      if (!data || data === 'ERR') {
+        const v = await call('GET', 'dm/' + dmFriend.chatId + '/files/' + f.id);
+        if (!v) { setError('File nahi mili (delete ho gayi hogi).'); return; }
+        data = await decryptText(dmShared.aes, v);
+      }
+      if (!data) { setError('File decrypt nahi hui.'); return; }
+      const a = document.createElement('a');
+      a.href = data;
+      a.download = f.name || 'file';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) { setError('Download nahi hua: ' + e.message); }
+  };
+
   const dmDeleteForMe = () => {
     if (!dmSel || !dmFriend) return;
     const h = [...dmHidden, dmSel.key];
@@ -918,8 +1013,10 @@ export default function App() {
 
   const dmDeleteForAll = async () => {
     if (!dmSel || !dmFriend || !currentUser || dmSel.from !== currentUser.uid) return;
-    try { await remove(ref(db, 'dm/' + dmFriend.chatId + '/messages/' + dmSel.key)); }
-    catch (e) { setError('Delete nahi hua: ' + e.message); }
+    try {
+      await remove(ref(db, 'dm/' + dmFriend.chatId + '/messages/' + dmSel.key));
+      if (dmSel.file) await remove(ref(db, 'dm/' + dmFriend.chatId + '/files/' + dmSel.file.id)).catch(() => {});
+    } catch (e) { setError('Delete nahi hua: ' + e.message); }
     setDmSel(null);
   };
 
@@ -1085,10 +1182,13 @@ export default function App() {
         const id = await loadIdentity();
         if (cancelled) return;
         await update(ref(db, 'profiles/' + currentUser.uid), { pub: id.pub });
-      } catch (e) {}
+        if (!cancelled) setPubError('');
+      } catch (e) {
+        if (!cancelled) setPubError('Encryption key save nahi hui: ' + e.message);
+      }
     })();
     return () => { cancelled = true; };
-  }, [isLoggedIn, currentUser && currentUser.uid, currentUser && currentUser.username]);
+  }, [isLoggedIn, currentUser && currentUser.uid, currentUser && currentUser.username, screen === 'friends']);
 
   // Friends + requests (only while Friends / Chat screen is open)
   useEffect(() => {
@@ -1148,12 +1248,40 @@ export default function App() {
       const out = [];
       for (const m of list) {
         const text = await decryptText(dmShared.aes, m);
-        out.push({ key: m.key, from: m.from, t: m.t, text: text === null ? '🔒 (decrypt nahi ho paya)' : text });
+        let shown = text === null ? '🔒 (decrypt nahi ho paya)' : text;
+        let file = null;
+        if (text && text.indexOf('{"__f":1') === 0) {
+          try {
+            const j = JSON.parse(text);
+            file = { id: j.id, name: j.name, type: j.type, size: j.size };
+            shown = j.text || '';
+          } catch (e) {}
+        }
+        out.push({ key: m.key, from: m.from, t: m.t, text: shown, file });
       }
       if (!cancelled) setDmPlain(out);
     })();
     return () => { cancelled = true; };
   }, [dmShared, dmRaw]);
+
+  // Photos load automatically
+  useEffect(() => {
+    if (!dmShared || !dmFriend) return;
+    dmPlain.forEach((m) => {
+      const f = m.file;
+      if (f && f.type && f.type.indexOf('image/') === 0 && !dmImgs[f.id] && !dmImgLoading.current[f.id]) {
+        dmImgLoading.current[f.id] = true;
+        (async () => {
+          try {
+            const v = await call('GET', 'dm/' + dmFriend.chatId + '/files/' + f.id);
+            if (!v) { dmImgLoading.current[f.id] = false; return; }
+            const data = await decryptText(dmShared.aes, v);
+            setDmImgs((prev) => ({ ...prev, [f.id]: data || 'ERR' }));
+          } catch (e) { dmImgLoading.current[f.id] = false; }
+        })();
+      }
+    });
+  }, [dmPlain, dmShared]);
 
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
@@ -2061,6 +2189,7 @@ export default function App() {
               <Text style={s.sm}>Tumhara username</Text>
               <Text style={[s.code2, { color: th.accent2 }]}>@{currentUser ? currentUser.username : ''}</Text>
               <Mini label="📋 Copy" onPress={() => copyText('@' + (currentUser ? currentUser.username : ''))} />
+              {!!pubError && <Text style={[s.sm, { color: '#ff6b6b' }]}>{pubError}</Text>}
 
               <TextInput style={s.i} placeholder="Friend ka username" autoCapitalize="none"
                 value={reqName} onChangeText={setReqName} />
@@ -2112,8 +2241,15 @@ export default function App() {
               <>
                 <Text style={[s.code2, { color: th.accent2 }]}>{(dmFriend.avatar || '😎') + ' ' + (dmFriend.name || dmFriend.username)}</Text>
                 <Text style={s.sm}>
-                  {dmShared ? t('e2e') + dmShared.safety : '⏳ Encryption set ho rahi hai... (friend ne abhi app nahi kholi to wait karo)'}
+                  {dmShared
+                    ? t('e2e') + dmShared.safety
+                    : !ident
+                      ? '⏳ Aapki encryption key ban rahi hai...'
+                      : (!dmPubStr || dmPubStr === 'null')
+                        ? '⏳ @' + dmFriend.username + ' ki encryption key abhi nahi mili. Unhe site kholkar Friends screen par aane ko bolo.'
+                        : '⚠️ Encryption key match nahi hui'}
                 </Text>
+                {!!pubError && <Text style={[s.sm, { color: '#ff6b6b' }]}>{pubError}</Text>}
                 <ScrollView
                   ref={dmScrollRef}
                   style={s.msgBox}
@@ -2134,7 +2270,22 @@ export default function App() {
                         ]}
                       >
                         <Text style={s.bname}>{mine ? t('you') : (dmFriend.name || dmFriend.username)}</Text>
-                        <Text style={s.btext}>{m.text}</Text>
+                        {!!m.file && m.file.type && m.file.type.indexOf('image/') === 0 && (
+                          dmImgs[m.file.id] && dmImgs[m.file.id] !== 'ERR' ? (
+                            <RNImage source={{ uri: dmImgs[m.file.id] }} style={s.dmPic} resizeMode="cover" />
+                          ) : (
+                            <Text style={s.btext}>{dmImgs[m.file.id] === 'ERR' ? '🖼️ Photo khul nahi payi' : '🖼️ Photo load ho rahi hai...'}</Text>
+                          )
+                        )}
+                        {!!m.file && !(m.file.type && m.file.type.indexOf('image/') === 0) && (
+                          <Text style={s.btext}>📎 {m.file.name} ({fmtSize(m.file.size)})</Text>
+                        )}
+                        {!!m.file && (
+                          <TouchableOpacity onPress={() => downloadDmFile(m.file)}>
+                            <Text style={[s.bname, { marginTop: 4, textDecorationLine: 'underline' }]}>⬇️ Download</Text>
+                          </TouchableOpacity>
+                        )}
+                        {!!m.text && <Text style={s.btext}>{m.text}</Text>}
                       </TouchableOpacity>
                     );
                   })}
@@ -2146,7 +2297,11 @@ export default function App() {
                     <Mini label={t('cancel')} onPress={() => setDmSel(null)} />
                   </View>
                 )}
+                {dmBusy && <Text style={s.sm}>⏳ File bhej raha hoon...</Text>}
                 <View style={s.sendRow}>
+                  <TouchableOpacity style={s.attachBtn} onPress={pickDmFile}>
+                    <Text style={s.bt}>📎</Text>
+                  </TouchableOpacity>
                   <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')}
                     value={dmText} onChangeText={setDmText} onSubmitEditing={sendDm} />
                   <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendDm}>
@@ -2308,6 +2463,8 @@ const s = StyleSheet.create({
   selBubble: { borderWidth: 2, borderColor: '#fff' },
   sendRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 8 },
   msgInput: { flex: 1, backgroundColor: '#ffffff18', borderRadius: 22, paddingVertical: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, marginRight: 8 },
+  attachBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff18', marginRight: 8 },
+  dmPic: { width: 220, height: 220, borderRadius: 12, marginBottom: 6 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   card: { backgroundColor: '#ffffff12', borderRadius: 14, padding: 14, marginVertical: 6, borderWidth: 1 },
   cardT: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
