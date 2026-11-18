@@ -557,6 +557,9 @@ export default function App() {
   const [pubError, setPubError] = useState('');
   const [dmImgs, setDmImgs] = useState({});
   const [dmBusy, setDmBusy] = useState(false);
+  const [globalBoard, setGlobalBoard] = useState([]);
+  const [boardTab, setBoardTab] = useState('global');
+  const [boardLoading, setBoardLoading] = useState(false);
 
   const t = (key) => (translations[uiLang] && translations[uiLang][key]) || translations.en[key] || key;
 
@@ -786,6 +789,21 @@ export default function App() {
     setAuthLoading(false);
   };
 
+  const forgotPassword = async () => {
+    const mail = email.trim().toLowerCase();
+    if (!mail.includes('@') || !mail.includes('.')) { setError('Pehle upar Email daalo'); return; }
+    setError(''); setNotice('');
+    try {
+      await authCall('accounts:sendOobCode', { requestType: 'PASSWORD_RESET', email: mail });
+      setNotice('Password badalne ka link mail par bhej diya. Spam bhi dekho.');
+      playSound('success', soundOn);
+    } catch (e) {
+      const c = String((e && e.code) || '');
+      setError(c.indexOf('EMAIL_NOT_FOUND') === 0 ? 'Is email se koi account nahi hai.' : authMsg(c || (e && e.message)));
+      playSound('error', soundOn);
+    }
+  };
+
   const backToForm = () => {
     setAuthStep('form');
     setPendingToken(''); setPendingEmail(''); setPendingUid(''); setPendingRefresh('');
@@ -808,6 +826,37 @@ export default function App() {
   };
 
   // ---- Username + friends + permanent chat ----
+  const addCloudPoints = async (points, opts) => {
+    if (!currentUser || !currentUser.uid || !currentUser.username) return;
+    try {
+      const r = ref(db, 'leaderboard/' + currentUser.uid);
+      const snap = await get(r);
+      const cur = snap.exists() ? snap.val() : {};
+      await set(r, {
+        username: currentUser.username,
+        name: currentUser.name || currentUser.username,
+        avatar: currentUser.avatar || '😎',
+        points: (cur.points || 0) + points,
+        games: (cur.games || 0) + (opts && opts.game ? 1 : 0),
+        wins: (cur.wins || 0) + (opts && opts.won ? 1 : 0),
+        t: Date.now(),
+      });
+    } catch (e) {}
+  };
+
+  const loadBoard = async () => {
+    setBoardLoading(true);
+    try {
+      const v = await call('GET', 'leaderboard', undefined, 'orderBy=%22points%22&limitToLast=20');
+      const list = Object.keys(v || {}).map((k) => ({ uid: k, ...v[k] }));
+      list.sort((a, b) => (b.points || 0) - (a.points || 0));
+      setGlobalBoard(list);
+    } catch (e) {
+      setError('Leaderboard load nahi hua: ' + e.message);
+    }
+    setBoardLoading(false);
+  };
+
   const copyText = async (txt) => {
     try {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -1264,6 +1313,11 @@ export default function App() {
     return () => { cancelled = true; };
   }, [dmShared, dmRaw]);
 
+  // Leaderboard opens -> load global list
+  useEffect(() => {
+    if (screen === 'leaderboard' && isLoggedIn) loadBoard();
+  }, [screen]);
+
   // Photos load automatically
   useEffect(() => {
     if (!dmShared || !dmFriend) return;
@@ -1371,6 +1425,11 @@ export default function App() {
         role,
         name: profile.name || role,
       });
+      if (currentUser && currentUser.username && role && (room.stage === 'game' || room.stage === 'end')) {
+        const mine = role === 'P1' ? room.scores.P1 : room.scores.P2;
+        const opp = role === 'P1' ? room.scores.P2 : room.scores.P1;
+        addCloudPoints(mine, { game: true, won: mine > opp });
+      }
     }
     resetReply();
     setRoomCode(null); setRoom(null); setRole(null);
@@ -1510,7 +1569,13 @@ export default function App() {
       const res = await fetch(AI_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.slice(-12) }),
+        body: JSON.stringify({
+          messages: next.slice(-12).map((m, i, arr) =>
+            m.role === 'user' && i === arr.length - 1
+              ? { ...m, content: m.content + '\n\n(Aaj ki tareekh: ' + new Date().toDateString() + ')' }
+              : m
+          ),
+        }),
       });
       const raw = await res.text();
       let data = null;
@@ -1682,6 +1747,7 @@ export default function App() {
     localStorage.setItem(key, '1');
     setDailyDone(true);
     addScore({ date: new Date().toISOString(), p1: 2, p2: 0, role: 'Daily', name: profile.name || 'You', bonus: true });
+    addCloudPoints(2, { game: false, won: false });
     setNotice(t('bonus'));
     playSound('success', soundOn);
     showNotif('Nexdare', 'Daily Challenge completed! +2 points', notifOn);
@@ -1914,6 +1980,7 @@ export default function App() {
                 label={authMode === 'login' ? 'Naya account banao' : 'Pehle se account hai? Login'}
                 onPress={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setError(''); }}
               />
+              {authMode === 'login' && <Nav label="Password bhool gaye?" onPress={forgotPassword} />}
             </>
           )}
           {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 14 }]}>{error}</Text>}
@@ -2320,7 +2387,25 @@ export default function App() {
 
           {screen === 'leaderboard' && (
             <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40, width: '100%' }}>
-              {scoresHistory.length === 0 ? (
+              <View style={s.miniRow}>
+                <Mini label={(boardTab === 'global' ? '✅ ' : '') + '🌍 Global'} onPress={() => setBoardTab('global')} />
+                <Mini label={(boardTab === 'mine' ? '✅ ' : '') + '📱 Mere games'} onPress={() => setBoardTab('mine')} />
+                {boardTab === 'global' && <Mini label="🔄" onPress={loadBoard} />}
+              </View>
+              {boardTab === 'global' ? (
+                globalBoard.length === 0 ? (
+                  <Text style={s.sm}>{boardLoading ? 'Load ho raha hai...' : 'Abhi koi score nahi'}</Text>
+                ) : (
+                  globalBoard.map((b, i) => (
+                    <View key={b.uid} style={[s.card, { borderColor: b.uid === myUid ? th.accent : th.accent + '55', width: '90%' }]}>
+                      <Text style={[s.cardT, { color: th.accent2 }]}>
+                        {'#' + (i + 1) + '  ' + (b.avatar || '😎') + ' ' + (b.name || b.username) + (b.uid === myUid ? ' (tum)' : '')}
+                      </Text>
+                      <Text style={s.cardS}>@{b.username} • {b.points || 0} points • {b.games || 0} games • {b.wins || 0} jeet</Text>
+                    </View>
+                  ))
+                )
+              ) : scoresHistory.length === 0 ? (
                 <Text style={s.sm}>No games yet</Text>
               ) : (
                 scoresHistory.slice(0, 20).map((sc, i) => (
