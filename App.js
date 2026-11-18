@@ -20,15 +20,70 @@ const AI_URL = 'https://nexdare-ai.vercel.app/api/ask';
 // ---- Firebase Auth (email + password) ----
 const FIREBASE_API_KEY = 'AIzaSyCOon-MP5tYqOgBDOjkodb_4vKHMVyBEPk';
 
+// ---- Login token (Firebase Auth) - database ko pata chalta hai ki kaun login hai ----
+let authState = { idToken: null, refreshToken: null, exp: 0 };
+try {
+  const savedAuth = JSON.parse(localStorage.getItem('nexdare_auth'));
+  if (savedAuth && savedAuth.refreshToken) authState = savedAuth;
+} catch (e) {}
+const saveAuthState = () => {
+  try { localStorage.setItem('nexdare_auth', JSON.stringify(authState)); } catch (e) {}
+};
+const setAuthTokens = (tk) => {
+  authState = {
+    idToken: tk.idToken,
+    refreshToken: tk.refreshToken,
+    exp: tk.expiresIn ? Date.now() + Number(tk.expiresIn) * 1000 : 0,
+  };
+  saveAuthState();
+};
+const clearAuthTokens = () => {
+  authState = { idToken: null, refreshToken: null, exp: 0 };
+  try { localStorage.removeItem('nexdare_auth'); } catch (e) {}
+};
+let refreshing = null;
+const refreshIdToken = () => {
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    const res = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FIREBASE_API_KEY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(authState.refreshToken),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error('Token refresh fail');
+    authState = {
+      idToken: d.id_token,
+      refreshToken: d.refresh_token || authState.refreshToken,
+      exp: Date.now() + Number(d.expires_in) * 1000,
+    };
+    saveAuthState();
+    return authState.idToken;
+  })();
+  refreshing.then(() => { refreshing = null; }, () => { refreshing = null; });
+  return refreshing;
+};
+const getToken = async () => {
+  if (!authState.refreshToken && !authState.idToken) return null;
+  if (!authState.idToken || Date.now() > authState.exp - 60000) {
+    try { await refreshIdToken(); } catch (e) {}
+  }
+  return authState.idToken;
+};
+
 // ---- Firebase Realtime Database (REST) ----
 const DB_URL = 'https://truthdare-battle-d81c8-default-rtdb.asia-southeast1.firebasedatabase.app';
 const db = null;
-const ref = (_db, path) => ({ path });
+const ref = (_db, path, query) => ({ path, query });
 const listeners = new Set();
 const pollAll = () => listeners.forEach((f) => f());
 
-const call = async (method, path, body) => {
-  const res = await fetch(DB_URL + '/' + path + '.json', {
+const call = async (method, path, body, query) => {
+  const tok = await getToken();
+  const parts = [];
+  if (tok) parts.push('auth=' + tok);
+  if (query) parts.push(query);
+  const res = await fetch(DB_URL + '/' + path + '.json' + (parts.length ? '?' + parts.join('&') : ''), {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -41,14 +96,14 @@ const update = async (r, data) => { await call('PATCH', r.path, data); pollAll()
 const push = async (r, data) => { await call('POST', r.path, data); pollAll(); };
 const remove = async (r) => { await call('DELETE', r.path); pollAll(); };
 const get = async (r) => {
-  const val = await call('GET', r.path);
+  const val = await call('GET', r.path, undefined, r.query);
   return { exists: () => val !== null, val: () => val };
 };
 const onValue = (r, cb) => {
   let stopped = false;
   const poll = async () => {
     try {
-      const val = await call('GET', r.path);
+      const val = await call('GET', r.path, undefined, r.query);
       if (!stopped) cb({ val: () => val });
     } catch (e) {}
   };
@@ -431,6 +486,8 @@ export default function App() {
   const scrollRef = useRef(null);
   const aiScrollRef = useRef(null);
   const lastChat = useRef('');
+  const lastDm = useRef('');
+  const dmScrollRef = useRef(null);
 
   const [profile, setProfile] = useState({ name: '', bio: '', avatar: '😎', friendCode: '' });
   const [friends, setFriends] = useState([]);
@@ -453,6 +510,21 @@ export default function App() {
   const [pendingToken, setPendingToken] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
   const [pendingUid, setPendingUid] = useState('');
+  const [pendingRefresh, setPendingRefresh] = useState('');
+
+  // ---- Permanent friends + chat ----
+  const [usernameInput, setUsernameInput] = useState('');
+  const [cloudFriends, setCloudFriends] = useState({});
+  const [friendReqs, setFriendReqs] = useState({});
+  const [reqName, setReqName] = useState('');
+  const [dmFriend, setDmFriend] = useState(null);
+  const [dmPubStr, setDmPubStr] = useState('');
+  const [dmShared, setDmShared] = useState(null);
+  const [dmRaw, setDmRaw] = useState({});
+  const [dmPlain, setDmPlain] = useState([]);
+  const [dmText, setDmText] = useState('');
+  const [dmSel, setDmSel] = useState(null);
+  const [dmHidden, setDmHidden] = useState([]);
 
   const t = (key) => (translations[uiLang] && translations[uiLang][key]) || translations.en[key] || key;
 
@@ -462,10 +534,12 @@ export default function App() {
       const savedUser = localStorage.getItem('nexdare_user');
       if (savedUser) {
         const user = JSON.parse(savedUser);
-        if (user && user.email) {
+        if (user && user.email && user.uid && authState.refreshToken) {
           setCurrentUser(user);
           setIsLoggedIn(true);
           setProfile(prev => ({ ...prev, ...user }));
+        } else {
+          localStorage.removeItem('nexdare_user');
         }
       }
       const p = JSON.parse(localStorage.getItem('nexdare_profile') || '{}');
@@ -501,6 +575,11 @@ export default function App() {
       setCurrentUser(updated);
       localStorage.setItem('nexdare_user', JSON.stringify(updated));
       set(ref(db, 'users/' + currentUser.uid), updated).catch(() => {});
+      if (currentUser.username) {
+        update(ref(db, 'profiles/' + currentUser.uid), {
+          name: p.name || currentUser.username, avatar: p.avatar || '😎', bio: p.bio || '',
+        }).catch(() => {});
+      }
     }
   };
   const saveFriends = (f) => {
@@ -546,7 +625,8 @@ export default function App() {
     await authCall('accounts:sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: token });
   };
 
-  const finishLogin = async (uid, mail, extra) => {
+  const finishLogin = async (uid, mail, extra, tokens) => {
+    if (tokens) setAuthTokens(tokens);
     let userData = {
       uid,
       email: mail,
@@ -563,12 +643,16 @@ export default function App() {
       }
       await set(ref(db, 'users/' + uid), userData);
     } catch (e) {}
+    try {
+      const ps = await get(ref(db, 'profiles/' + uid));
+      if (ps.exists() && ps.val().username) userData.username = ps.val().username;
+    } catch (e) {}
     localStorage.setItem('nexdare_user', JSON.stringify(userData));
     setCurrentUser(userData);
     setProfile((prev) => ({ ...prev, ...userData }));
     setIsLoggedIn(true);
     setAuthStep('form');
-    setPendingToken(''); setPendingEmail(''); setPendingUid('');
+    setPendingToken(''); setPendingEmail(''); setPendingUid(''); setPendingRefresh('');
     setEmail(''); setPassword('');
     setError('');
     setNotice('Login successful! 🎉');
@@ -591,7 +675,7 @@ export default function App() {
       );
       if (authMode === 'signup') {
         await sendVerifyMail(data.idToken);
-        setPendingToken(data.idToken); setPendingEmail(data.email); setPendingUid(data.localId);
+        setPendingToken(data.idToken); setPendingEmail(data.email); setPendingUid(data.localId); setPendingRefresh(data.refreshToken);
         setAuthStep('verify');
         setNotice('Verification link bhej diya: ' + data.email);
         playSound('success', soundOn);
@@ -599,9 +683,9 @@ export default function App() {
         const info = await authCall('accounts:lookup', { idToken: data.idToken });
         const u = info.users && info.users[0];
         if (u && u.emailVerified) {
-          await finishLogin(data.localId, data.email);
+          await finishLogin(data.localId, data.email, undefined, { idToken: data.idToken, refreshToken: data.refreshToken, expiresIn: data.expiresIn });
         } else {
-          setPendingToken(data.idToken); setPendingEmail(data.email); setPendingUid(data.localId);
+          setPendingToken(data.idToken); setPendingEmail(data.email); setPendingUid(data.localId); setPendingRefresh(data.refreshToken);
           setAuthStep('verify');
           setNotice('Email abhi verify nahi hua. Mail ka link kholo ya "Mail dobara bhejo" dabao.');
         }
@@ -619,7 +703,7 @@ export default function App() {
       const info = await authCall('accounts:lookup', { idToken: pendingToken });
       const u = info.users && info.users[0];
       if (u && u.emailVerified) {
-        await finishLogin(pendingUid, pendingEmail);
+        await finishLogin(pendingUid, pendingEmail, undefined, { idToken: pendingToken, refreshToken: pendingRefresh, expiresIn: 0 });
       } else {
         setError('Abhi email verify nahi hua. Mail me link pe tap karo, phir yahan dobara dabao.');
         playSound('error', soundOn);
@@ -655,7 +739,8 @@ export default function App() {
       provider.setCustomParameters({ prompt: 'select_account' });
       const result = await fb.auth().signInWithPopup(provider);
       const u = result.user;
-      await finishLogin(u.uid, u.email, { name: u.displayName || '' });
+      const gToken = await u.getIdToken();
+      await finishLogin(u.uid, u.email, { name: u.displayName || '' }, { idToken: gToken, refreshToken: u.refreshToken, expiresIn: 3500 });
     } catch (e) {
       const c = String((e && e.code) || '');
       let msg = 'Google login nahi hua: ' + ((e && e.message) || c);
@@ -671,11 +756,13 @@ export default function App() {
 
   const backToForm = () => {
     setAuthStep('form');
-    setPendingToken(''); setPendingEmail(''); setPendingUid('');
+    setPendingToken(''); setPendingEmail(''); setPendingUid(''); setPendingRefresh('');
     setPassword(''); setError(''); setNotice('');
   };
 
   const logout = () => {
+    clearAuthTokens();
+    setCloudFriends({}); setFriendReqs({}); setDmFriend(null);
     try { if (window.firebase && window.firebase.apps.length) window.firebase.auth().signOut(); } catch (e) {}
     localStorage.removeItem('nexdare_user');
     setCurrentUser(null);
@@ -686,6 +773,154 @@ export default function App() {
     setAuthStep('form');
     setNotice('Logged out');
     playSound('click', soundOn);
+  };
+
+  // ---- Username + friends + permanent chat ----
+  const copyText = async (txt) => {
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(txt);
+        setNotice('Copy ho gaya ✅');
+      } else {
+        await Share.share({ message: txt });
+      }
+    } catch (e) {}
+  };
+
+  const claimUsername = async () => {
+    const uname = usernameInput.trim().toLowerCase().replace(/^@/, '');
+    if (!/^[a-z0-9_]{3,20}$/.test(uname)) {
+      setError('Username 3 se 20 akshar ka ho: sirf a-z, 0-9 aur _'); playSound('error', soundOn); return;
+    }
+    if (!currentUser || !currentUser.uid) return;
+    setAuthLoading(true); setError(''); setNotice('');
+    try {
+      const snap = await get(ref(db, 'usernames/' + uname));
+      if (snap.exists() && snap.val() !== currentUser.uid) {
+        setError('Ye username kisi ne le liya hai, doosra chuno.'); playSound('error', soundOn);
+        setAuthLoading(false); return;
+      }
+      await set(ref(db, 'usernames/' + uname), currentUser.uid);
+      await set(ref(db, 'profiles/' + currentUser.uid), {
+        username: uname,
+        name: currentUser.name || uname,
+        avatar: currentUser.avatar || '😎',
+        bio: currentUser.bio || '',
+      });
+      const updated = { ...currentUser, username: uname, name: currentUser.name || uname };
+      localStorage.setItem('nexdare_user', JSON.stringify(updated));
+      setCurrentUser(updated);
+      setProfile((prev) => ({ ...prev, name: updated.name }));
+      setUsernameInput('');
+      setNotice('Username set ho gaya: @' + uname + ' 🎉');
+      playSound('success', soundOn);
+    } catch (e) {
+      setError('Username save nahi hua: ' + e.message); playSound('error', soundOn);
+    }
+    setAuthLoading(false);
+  };
+
+  const sendFriendRequest = async () => {
+    const uname = reqName.trim().toLowerCase().replace(/^@/, '');
+    if (!uname) return;
+    if (!currentUser || !currentUser.uid || !currentUser.username) return;
+    if (uname === currentUser.username) { setError('Khud ko add nahi kar sakte 😄'); return; }
+    setError(''); setNotice('');
+    try {
+      const snap = await get(ref(db, 'usernames/' + uname));
+      if (!snap.exists()) { setError('Ye username nahi mila. Spelling check karo.'); playSound('error', soundOn); return; }
+      const targetUid = snap.val();
+      if (cloudFriends[targetUid]) { setNotice('Ye pehle se aapka friend hai.'); return; }
+      if (friendReqs[targetUid]) { setNotice('Unhone aapko request bheji hai. Neeche Accept karo.'); return; }
+      await set(ref(db, 'friendReqs/' + targetUid + '/' + currentUser.uid), {
+        uid: currentUser.uid,
+        username: currentUser.username,
+        name: currentUser.name || currentUser.username,
+        avatar: currentUser.avatar || '😎',
+        t: Date.now(),
+      });
+      setReqName('');
+      setNotice('Request bhej di ✅ @' + uname + ' accept karega to chat shuru ho jayegi.');
+      playSound('success', soundOn);
+    } catch (e) {
+      setError('Request nahi gayi: ' + e.message); playSound('error', soundOn);
+    }
+  };
+
+  const acceptRequest = async (r) => {
+    if (!currentUser || !currentUser.uid) return;
+    try {
+      const chatId = [currentUser.uid, r.uid].sort().join('_');
+      const since = Date.now();
+      await set(ref(db, 'friends/' + currentUser.uid + '/' + r.uid), {
+        uid: r.uid, username: r.username, name: r.name || r.username, avatar: r.avatar || '😎', chatId, since,
+      });
+      await set(ref(db, 'friends/' + r.uid + '/' + currentUser.uid), {
+        uid: currentUser.uid, username: currentUser.username, name: currentUser.name || currentUser.username,
+        avatar: currentUser.avatar || '😎', chatId, since,
+      });
+      await remove(ref(db, 'friendReqs/' + currentUser.uid + '/' + r.uid));
+      setNotice('@' + r.username + ' ab aapka friend hai 🎉');
+      playSound('success', soundOn);
+    } catch (e) {
+      setError('Accept nahi hua: ' + e.message); playSound('error', soundOn);
+    }
+  };
+
+  const declineRequest = async (r) => {
+    try { await remove(ref(db, 'friendReqs/' + currentUser.uid + '/' + r.uid)); }
+    catch (e) { setError('Error: ' + e.message); }
+  };
+
+  const removeCloudFriend = async (f) => {
+    try { await remove(ref(db, 'friends/' + currentUser.uid + '/' + f.uid)); }
+    catch (e) { setError('Error: ' + e.message); }
+  };
+
+  const openDm = (f) => {
+    setDmFriend(f); setDmShared(null); setDmPlain([]); setDmRaw({}); setDmPubStr('');
+    lastDm.current = '';
+    setDmSel(null); setDmText(''); setError(''); setNotice('');
+    let h = [];
+    try { h = JSON.parse(localStorage.getItem('nexdare_dmhidden_' + f.chatId)) || []; } catch (e) {}
+    setDmHidden(h);
+    if (subtle) loadIdentity().then(setIdent).catch(() => {});
+    setScreen('dm');
+  };
+
+  const leaveDm = () => {
+    setDmFriend(null); setDmShared(null); setDmPlain([]); setDmRaw({});
+    setDmSel(null); setError(''); setNotice('');
+    setScreen('friends');
+  };
+
+  const sendDm = async () => {
+    const text = dmText.trim();
+    if (!text || !dmFriend) return;
+    if (!dmShared || !currentUser) { setNotice('Friend ki encryption abhi ready nahi hai. Unhe app kholne ko bolo.'); return; }
+    setDmText(''); setNotice('');
+    try {
+      const enc = await encryptText(dmShared.aes, text);
+      await push(ref(db, 'dm/' + dmFriend.chatId + '/messages'), {
+        from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now(),
+      });
+      playSound('msg', soundOn);
+    } catch (e) { setError('Message nahi gaya: ' + e.message); playSound('error', soundOn); }
+  };
+
+  const dmDeleteForMe = () => {
+    if (!dmSel || !dmFriend) return;
+    const h = [...dmHidden, dmSel.key];
+    setDmHidden(h);
+    try { localStorage.setItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
+    setDmSel(null);
+  };
+
+  const dmDeleteForAll = async () => {
+    if (!dmSel || !dmFriend || !currentUser || dmSel.from !== currentUser.uid) return;
+    try { await remove(ref(db, 'dm/' + dmFriend.chatId + '/messages/' + dmSel.key)); }
+    catch (e) { setError('Delete nahi hua: ' + e.message); }
+    setDmSel(null);
   };
 
   // ---- Rest of original logic (rooms, chat, etc.) ----
@@ -841,13 +1076,93 @@ export default function App() {
     return () => { cancelled = true; };
   }, [shared, chatData]);
 
+  // Public encryption key publish (for permanent chat)
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !currentUser.uid || !currentUser.username || !subtle) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const id = await loadIdentity();
+        if (cancelled) return;
+        await update(ref(db, 'profiles/' + currentUser.uid), { pub: id.pub });
+      } catch (e) {}
+    })();
+    return () => { cancelled = true; };
+  }, [isLoggedIn, currentUser && currentUser.uid, currentUser && currentUser.username]);
+
+  // Friends + requests (only while Friends / Chat screen is open)
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !currentUser.uid || !currentUser.username) return;
+    if (screen !== 'friends' && screen !== 'dm') return;
+    const uid = currentUser.uid;
+    const u1 = onValue(ref(db, 'friends/' + uid), (snap) => setCloudFriends(snap.val() || {}));
+    const u2 = onValue(ref(db, 'friendReqs/' + uid), (snap) => setFriendReqs(snap.val() || {}));
+    return () => { u1(); u2(); };
+  }, [isLoggedIn, screen, currentUser && currentUser.uid, currentUser && currentUser.username]);
+
+  // Friend's public key
+  useEffect(() => {
+    if (screen !== 'dm' || !dmFriend) return;
+    const unsub = onValue(ref(db, 'profiles/' + dmFriend.uid + '/pub'), (snap) => setDmPubStr(JSON.stringify(snap.val())));
+    return () => unsub();
+  }, [screen, dmFriend && dmFriend.uid]);
+
+  // Shared secret
+  useEffect(() => {
+    if (!ident || !dmPubStr || dmPubStr === 'null' || screen !== 'dm') { setDmShared(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const other = JSON.parse(dmPubStr);
+        const sh = await deriveShared(ident.priv, other);
+        const safety = await safetyCode(ident.pub, other);
+        if (!cancelled) setDmShared({ aes: sh.aes, safety });
+      } catch (e) {
+        if (!cancelled) setDmShared(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ident, dmPubStr, screen]);
+
+  // Messages (last 100)
+  useEffect(() => {
+    if (screen !== 'dm' || !dmFriend) return;
+    const unsub = onValue(
+      { path: 'dm/' + dmFriend.chatId + '/messages', query: 'orderBy=%22%24key%22&limitToLast=100' },
+      (snap) => {
+        const v = snap.val();
+        const str = JSON.stringify(v);
+        if (str !== lastDm.current) { lastDm.current = str; setDmRaw(v || {}); }
+      }
+    );
+    return () => unsub();
+  }, [screen, dmFriend && dmFriend.chatId]);
+
+  // Decrypt messages
+  useEffect(() => {
+    if (!dmShared) { setDmPlain([]); return; }
+    let cancelled = false;
+    (async () => {
+      const list = Object.keys(dmRaw).map((k) => ({ key: k, ...dmRaw[k] }));
+      list.sort((a, b) => a.t - b.t);
+      const out = [];
+      for (const m of list) {
+        const text = await decryptText(dmShared.aes, m);
+        out.push({ key: m.key, from: m.from, t: m.t, text: text === null ? '🔒 (decrypt nahi ho paya)' : text });
+      }
+      if (!cancelled) setDmPlain(out);
+    })();
+    return () => { cancelled = true; };
+  }, [dmShared, dmRaw]);
+
   const visible = plain.filter((m) => !hidden.includes(m.key));
+  const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
 
   let th = themes.p1;
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
   else if (screen === 'join' || screen === 'room') th = themes.room;
   else if (screen === 'adlax') th = themes.adlax;
-  else if (screen === 'chat') th = themes.chat;
+  else if (screen === 'chat' || screen === 'dm') th = themes.chat;
   else if (['settings', 'profile', 'friends', 'leaderboard', 'daily'].includes(screen)) th = themes.settings;
 
   const Btn = ({ label, onPress, big }) => (
@@ -1180,6 +1495,7 @@ export default function App() {
       localStorage.removeItem('nexdare_notif');
       localStorage.removeItem('nexdare_uilang');
       localStorage.removeItem('nexdare_user');
+      clearAuthTokens();
       Object.keys(localStorage).forEach((k) => {
         if (k.startsWith('nexdare_hidden_') || k.startsWith('nexdare_daily_')) localStorage.removeItem(k);
       });
@@ -1395,17 +1711,21 @@ export default function App() {
   else if (screen === 'leaderboard') title = t('leaderboard');
   else if (screen === 'daily') title = t('daily');
   else if (screen === 'settings') title = t('settings');
+  else if (screen === 'dm') title = null;
 
   const inChat = screen === 'chat' && !!chatCode;
+  const inDm = screen === 'dm';
+  const needUsername = isLoggedIn && !!currentUser && !currentUser.username;
+  const myUid = currentUser ? currentUser.uid : null;
   const inAdlax = screen === 'adlax';
   const inGame = screen === 'room' && !!room && room.stage === 'game';
   const myId = ident ? ident.sid : null;
 
   return (
-    <View style={[s.c, { backgroundColor: th.bg }, inChat || inAdlax || inGame || ['profile','friends','leaderboard','daily','settings'].includes(screen) ? s.cTop : null]}>
+    <View style={[s.c, { backgroundColor: th.bg }, inChat || inDm || inAdlax || inGame || ['profile','friends','leaderboard','daily','settings'].includes(screen) ? s.cTop : null]}>
       <View pointerEvents="none" style={[s.glow, { top: -90, right: -70, backgroundColor: th.glow }]} />
       <View pointerEvents="none" style={[s.glow2, { bottom: -110, left: -80, backgroundColor: th.glow2 }]} />
-      {!inChat && !inGame && (
+      {!inChat && !inGame && !inDm && (
         <View pointerEvents="none" style={s.floatWrap}>
           <Text style={[s.floaty, { top: 70, left: 22, fontSize: 30 }]}>{th.e[0]}</Text>
           <Text style={[s.floaty, { top: 150, right: 24, fontSize: 24 }]}>{th.e[1]}</Text>
@@ -1474,9 +1794,28 @@ export default function App() {
           {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 14 }]}>{error}</Text>}
           {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 12 }]}>{notice}</Text>}
         </View>
+      ) : needUsername ? (
+        <View style={{ width: '100%', alignItems: 'center', paddingHorizontal: 24, zIndex: 10 }}>
+          <Text style={[s.welcome, { color: th.accent2 }]}>Nexdare</Text>
+          <Text style={[s.q, { color: th.accent2 }]}>Apna username chuno</Text>
+          <Text style={[s.sm, { marginBottom: 12 }]}>
+            Dost aapko isi se dhundhenge. 3 se 20 akshar: a-z, 0-9 aur _ . Baad me badal nahi sakte.
+          </Text>
+          <TextInput
+            style={s.i}
+            placeholder="jaise rahul_01"
+            autoCapitalize="none"
+            value={usernameInput}
+            onChangeText={setUsernameInput}
+          />
+          <Btn label={authLoading ? 'Ruko...' : 'Save karo ✅'} onPress={claimUsername} />
+          <Nav label={t('logout')} onPress={logout} />
+          {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 14 }]}>{error}</Text>}
+          {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 12 }]}>{notice}</Text>}
+        </View>
       ) : (
         <>
-          {!!title && !inChat && !inGame && (
+          {!!title && !inChat && !inGame && !inDm && (
             <Text style={inAdlax ? s.tSmall : screen === 'home' ? s.tStyled : s.t}>{title}</Text>
           )}
 
@@ -1710,7 +2049,7 @@ export default function App() {
           {screen === 'profile' && (
             <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40, width: '100%' }}>
               <Text style={[s.code2, { color: th.accent2, fontSize: 48 }]}>{profile.avatar}</Text>
-              <Text style={s.sm}>{t('friendCode')}: {profile.friendCode}</Text>
+              <Text style={s.sm}>Username: @{currentUser ? currentUser.username : ''}</Text>
               {currentUser && <Text style={s.sm}>📧 {currentUser.email}</Text>}
               <TextInput style={s.i} placeholder={t('name')} value={profile.name}
                 onChangeText={(v) => setProfile({ ...profile, name: v })} />
@@ -1725,22 +2064,109 @@ export default function App() {
 
           {screen === 'friends' && (
             <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40, width: '100%' }}>
-              <TextInput style={s.i} placeholder={t('enterFriendCode')} value={friendInput}
-                onChangeText={setFriendInput} autoCapitalize="none" />
-              <Btn label={t('addFriend')} onPress={addFriend} />
-              {friends.length === 0 ? (
+              <Text style={s.sm}>Tumhara username</Text>
+              <Text style={[s.code2, { color: th.accent2 }]}>@{currentUser ? currentUser.username : ''}</Text>
+              <Mini label="📋 Copy" onPress={() => copyText('@' + (currentUser ? currentUser.username : ''))} />
+
+              <TextInput style={s.i} placeholder="Friend ka username" autoCapitalize="none"
+                value={reqName} onChangeText={setReqName} />
+              <Btn label="Request bhejo 📩" onPress={sendFriendRequest} />
+
+              {Object.keys(friendReqs).length > 0 && (
+                <>
+                  <Text style={[s.q, { color: th.accent2 }]}>Friend requests</Text>
+                  {Object.keys(friendReqs).map((k) => {
+                    const r = friendReqs[k];
+                    return (
+                      <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+                        <Text style={[s.cardT, { color: th.accent2 }]}>{(r.avatar || '😎') + ' ' + (r.name || r.username)}</Text>
+                        <Text style={s.cardS}>@{r.username}</Text>
+                        <View style={s.miniRow}>
+                          <Mini label="Accept ✅" onPress={() => acceptRequest(r)} />
+                          <Mini label="Reject" onPress={() => declineRequest(r)} />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+
+              <Text style={[s.q, { color: th.accent2 }]}>Friends</Text>
+              {Object.keys(cloudFriends).length === 0 ? (
                 <Text style={s.sm}>{t('noFriends')}</Text>
               ) : (
-                friends.map((f) => (
-                  <View key={f.code} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
-                    <Text style={[s.cardT, { color: th.accent2 }]}>{f.name || f.code}</Text>
-                    <Text style={s.cardS}>{f.code}</Text>
-                    <Mini label={t('remove')} onPress={() => removeFriend(f.code)} />
-                  </View>
-                ))
+                Object.keys(cloudFriends).map((k) => {
+                  const f = cloudFriends[k];
+                  return (
+                    <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+                      <Text style={[s.cardT, { color: th.accent2 }]}>{(f.avatar || '😎') + ' ' + (f.name || f.username)}</Text>
+                      <Text style={s.cardS}>@{f.username}</Text>
+                      <View style={s.miniRow}>
+                        <Mini label="💬 Chat" onPress={() => openDm(f)} />
+                        <Mini label={t('remove')} onPress={() => removeCloudFriend(f)} />
+                      </View>
+                    </View>
+                  );
+                })
               )}
               <Nav label={t('back')} onPress={() => setScreen('home')} />
             </ScrollView>
+          )}
+
+          {screen === 'dm' && dmFriend && (
+            subtle ? (
+              <>
+                <Text style={[s.code2, { color: th.accent2 }]}>{(dmFriend.avatar || '😎') + ' ' + (dmFriend.name || dmFriend.username)}</Text>
+                <Text style={s.sm}>
+                  {dmShared ? t('e2e') + dmShared.safety : '⏳ Encryption set ho rahi hai... (friend ne abhi app nahi kholi to wait karo)'}
+                </Text>
+                <ScrollView
+                  ref={dmScrollRef}
+                  style={s.msgBox}
+                  onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}
+                >
+                  {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
+                  {dmVisible.map((m) => {
+                    const mine = myUid && m.from === myUid;
+                    const sel = dmSel && dmSel.key === m.key;
+                    return (
+                      <TouchableOpacity
+                        key={m.key}
+                        onPress={() => setDmSel(sel ? null : m)}
+                        style={[
+                          s.bubble,
+                          mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs,
+                          sel ? s.selBubble : null,
+                        ]}
+                      >
+                        <Text style={s.bname}>{mine ? t('you') : (dmFriend.name || dmFriend.username)}</Text>
+                        <Text style={s.btext}>{m.text}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                {!!dmSel && (
+                  <View style={s.miniRow}>
+                    <Mini label={t('deleteForMe')} onPress={dmDeleteForMe} />
+                    {dmSel.from === myUid && <Mini label={t('deleteForAll')} onPress={dmDeleteForAll} />}
+                    <Mini label={t('cancel')} onPress={() => setDmSel(null)} />
+                  </View>
+                )}
+                <View style={s.sendRow}>
+                  <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')}
+                    value={dmText} onChangeText={setDmText} onSubmitEditing={sendDm} />
+                  <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendDm}>
+                    <Text style={s.bt}>➤</Text>
+                  </TouchableOpacity>
+                </View>
+                <Nav label={t('back')} onPress={leaveDm} />
+              </>
+            ) : (
+              <>
+                <Text style={s.sm}>{t('needBrowserChat')}</Text>
+                <Nav label={t('back')} onPress={leaveDm} />
+              </>
+            )
           )}
 
           {screen === 'leaderboard' && (
