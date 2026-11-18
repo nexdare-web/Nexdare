@@ -1756,15 +1756,12 @@ export default function App() {
               {Platform.OS === 'web' && (
                 <>
                   <Btn
-                    label={authLoading ? 'Ruko...' : '🔵 Google se Continue karo'}
+                    label={authLoading ? 'Ruko...' : '🔵 Google se Login'}
                     onPress={googleLogin}
                   />
-                  <Text style={[s.sm, { marginVertical: 10 }]}>— ya email se —</Text>
+                  <View style={{ height: 14 }} />
                 </>
               )}
-              <Text style={[s.sm, { marginBottom: 16 }]}>
-                {authMode === 'login' ? 'Email se Login karo' : 'Naya account banao'}
-              </Text>
               <TextInput
                 style={s.i}
                 placeholder="Email"
@@ -1775,14 +1772,14 @@ export default function App() {
               />
               <TextInput
                 style={s.i}
-                placeholder="Password (kam se kam 6)"
+                placeholder="Password"
                 secureTextEntry
                 autoCapitalize="none"
                 value={password}
                 onChangeText={setPassword}
               />
               <Btn
-                label={authLoading ? 'Ruko...' : authMode === 'login' ? 'Login ✅' : 'Account banao ✅'}
+                label={authLoading ? 'Ruko...' : authMode === 'login' ? 'Login' : 'Account banao'}
                 onPress={submitAuth}
               />
               <Nav
@@ -1797,18 +1794,15 @@ export default function App() {
       ) : needUsername ? (
         <View style={{ width: '100%', alignItems: 'center', paddingHorizontal: 24, zIndex: 10 }}>
           <Text style={[s.welcome, { color: th.accent2 }]}>Nexdare</Text>
-          <Text style={[s.q, { color: th.accent2 }]}>Apna username chuno</Text>
-          <Text style={[s.sm, { marginBottom: 12 }]}>
-            Dost aapko isi se dhundhenge. 3 se 20 akshar: a-z, 0-9 aur _ . Baad me badal nahi sakte.
-          </Text>
+          <Text style={[s.q, { color: th.accent2, marginBottom: 12 }]}>Username</Text>
           <TextInput
             style={s.i}
-            placeholder="jaise rahul_01"
+            placeholder="Username"
             autoCapitalize="none"
             value={usernameInput}
             onChangeText={setUsernameInput}
           />
-          <Btn label={authLoading ? 'Ruko...' : 'Save karo ✅'} onPress={claimUsername} />
+          <Btn label={authLoading ? 'Ruko...' : 'Save'} onPress={claimUsername} />
           <Nav label={t('logout')} onPress={logout} />
           {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 14 }]}>{error}</Text>}
           {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 12 }]}>{notice}</Text>}
