@@ -506,6 +506,12 @@ const fmtListTime = (t) => {
   if (diff === 1) return 'Yesterday';
   return d.toLocaleDateString();
 };
+const letterOf = (name) => {
+  const c = String(name || '').trim().replace(/^@/, '').charAt(0);
+  return c ? c.toUpperCase() : '?';
+};
+const LETTER_COLORS = ['#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#43a047', '#fb8c00', '#f4511e', '#8d6e63'];
+const avLbl = (av) => (av && av !== '😎' ? av + ' ' : '');
 // ===== GROUP CHAT HELPERS END =====
 
 // ===== GAMES + COUPLE DATA =====
@@ -722,6 +728,8 @@ export default function App() {
   const [previews, setPreviews] = useState({});
   const [pics, setPics] = useState({});
   const [friendMenu, setFriendMenu] = useState(null);
+  const [viewer, setViewer] = useState(null);
+  const picTried = useRef({});
   const lastGrp = useRef('');
   const grpScrollRef = useRef(null);
   const grpCount = useRef(-1);
@@ -1378,6 +1386,7 @@ export default function App() {
           const cnt = inThis ? 0 : arr.filter((x) => x.from !== currentUser.uid && x.t > mySeen).length;
           setUnread((u) => (u[f.chatId] === cnt ? u : { ...u, [f.chatId]: cnt }));
           const m = arr.length ? arr.reduce((a, b) => (b.t > a.t ? b : a)) : null;
+          await ensurePic(f);
           if (m) await updatePreview(f, m);
           if (!m) { if (lastNotif.current[f.chatId] === undefined) lastNotif.current[f.chatId] = 0; continue; }
           const prev = lastNotif.current[f.chatId];
@@ -1612,6 +1621,14 @@ export default function App() {
   };
 
   // ===== GROUP CHAT + CHAT LIST PREVIEW =====
+  const ensurePic = async (f) => {
+    if (picTried.current[f.uid]) return;
+    picTried.current[f.uid] = true;
+    try {
+      const prof = await call('GET', 'profiles/' + f.uid);
+      if (prof && prof.photo) setPics((p) => ({ ...p, [f.uid]: prof.photo }));
+    } catch (e) { picTried.current[f.uid] = false; }
+  };
   const updatePreview = async (f, m) => {
     if (!subtle) return;
     try {
@@ -2155,12 +2172,26 @@ export default function App() {
       {[1, 3].map((i) => <View key={i} style={[s.dot, i === n ? { width: 26, backgroundColor: th.accent } : null]} />)}
     </View>
   );
-  const Pic = ({ uri, emoji, size }) => uri
-    ? <RNImage source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
-    : <Text style={{ fontSize: size * 0.8 }}>{emoji}</Text>;
+  const myLetterName = profile.name || (currentUser && (currentUser.email || currentUser.name || currentUser.username)) || '';
+  const Pic = ({ uri, emoji, size, name }) => {
+    if (uri) {
+      return (
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setViewer(uri)}>
+          <RNImage source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+        </TouchableOpacity>
+      );
+    }
+    if (emoji && emoji !== '😎') return <Text style={{ fontSize: size * 0.8 }}>{emoji}</Text>;
+    const ch = letterOf(name);
+    return (
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: LETTER_COLORS[ch.charCodeAt(0) % LETTER_COLORS.length], alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#fff', fontSize: size * 0.46, fontWeight: '700' }}>{ch}</Text>
+      </View>
+    );
+  };
   const chatRow = ({ rowKey, uri, emoji, title, sub, time, badge, onPress, onMore }) => (
     <TouchableOpacity key={rowKey} activeOpacity={0.6} style={s.chatRow} onPress={onPress} onLongPress={onMore}>
-      <View style={s.avWrap}><Pic uri={uri} emoji={emoji} size={52} /></View>
+      <View style={s.avWrap}><Pic uri={uri} emoji={emoji} size={52} name={title} /></View>
       <View style={{ flex: 1, marginLeft: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text numberOfLines={1} style={s.rowTitle}>{title}</Text>
@@ -2296,7 +2327,7 @@ export default function App() {
     }
     return (<>
       <View style={s.miniRow}>
-        <Text style={[s.sm, { marginRight: 10, alignSelf: 'center' }]}>Saath: {(pal.avatar || '😎') + ' ' + palName}</Text>
+        <Text style={[s.sm, { marginRight: 10, alignSelf: 'center' }]}>Saath: {avLbl(pal.avatar) + palName}</Text>
         <Mini label="Badlo" onPress={() => setPalPicking(true)} />
       </View>
       {!palAes ? <Text style={s.sm}>⏳ Encryption key ban rahi hai... {palName} ko ek baar app kholne ko bolo.</Text> : content}
@@ -2647,7 +2678,7 @@ export default function App() {
 
         {screen === 'profile' && (
           <ScrollView contentContainerStyle={sc}>
-            <Pic uri={myPhoto} emoji={profile.avatar} size={90} />
+            <Pic uri={myPhoto} emoji={profile.avatar} size={90} name={myLetterName} />
             <Mini label={myPhoto ? '📷 Photo badlo' : '📷 Apni photo lagao'} onPress={() => pickPhoto('me')} />
             {currentUser && <Text style={s.sm}>@{currentUser.username} • {currentUser.email}</Text>}
             <TextInput style={s.i} placeholder={t('name')} placeholderTextColor={PH} value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} />
@@ -2666,7 +2697,7 @@ export default function App() {
               <Mini label="Auto" onPress={() => { setSkin(''); localStorage.removeItem('nexdare_skin'); }} />
             </View>
             <Text style={s.sm}>Apni photo (profile aur chats me dikhegi)</Text>
-            <Pic uri={myPhoto} emoji={profile.avatar} size={70} />
+            <Pic uri={myPhoto} emoji={profile.avatar} size={70} name={myLetterName} />
             <Mini label="📷 Apni photo lagao" onPress={() => pickPhoto('me')} />
             <Text style={s.sm}>Background photo (poori app me)</Text>
             <View style={s.miniRow}>
@@ -2691,7 +2722,7 @@ export default function App() {
                 const r = friendReqs[k];
                 return (
                   <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
-                    <Text style={[s.cardT, { color: th.accent2 }]}>{(r.avatar || '😎') + ' ' + (r.name || r.username)}</Text>
+                    <Text style={[s.cardT, { color: th.accent2 }]}>{avLbl(r.avatar) + (r.name || r.username)}</Text>
                     <Text style={s.cardS}>@{r.username}</Text>
                     <View style={s.miniRow}>
                       <Mini label="Accept ✅" onPress={() => acceptRequest(r)} />
@@ -2856,7 +2887,7 @@ export default function App() {
               </View>
               <Text style={[s.cardT, { color: th.accent2 }]}>Members</Text>
               {Object.keys(grpMembers).map((uid) => (
-                <Text key={uid} style={s.cardS}>{(grpMembers[uid].avatar || '😎') + ' ' + grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '')}</Text>
+                <Text key={uid} style={s.cardS}>{avLbl(grpMembers[uid].avatar) + grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '')}</Text>
               ))}
               <View style={s.miniRow}>
                 <Mini label={grpConfirm === 'leave' ? 'Pakka chhodna hai?' : '🚪 Group chhodo'} onPress={leaveGroupForever} />
@@ -2898,7 +2929,7 @@ export default function App() {
 
         {screen === 'dm' && dmFriend && (subtle ? (<>
           <View style={s.dmHead}>
-            <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} />
+            <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} name={(dmProf && dmProf.name) || dmFriend.name || dmFriend.username} />
             <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0, flex: 1 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
             {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
             <TouchableOpacity style={s.attachBtn} onPress={() => setDmMenu(dmMenu ? '' : 'menu')}><Text style={s.bt}>⋮</Text></TouchableOpacity>
@@ -3005,6 +3036,12 @@ export default function App() {
         {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 10 }]}>{error}</Text>}
         {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 8 }]}>{notice}</Text>}
       </>)}
+      {!!viewer && (
+        <TouchableOpacity activeOpacity={1} onPress={() => setViewer(null)} style={s.viewerBg}>
+          <RNImage source={{ uri: viewer }} style={s.viewerImg} resizeMode="contain" />
+          <Text style={s.viewerClose}>✕  Band karo</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -3067,6 +3104,9 @@ const s = StyleSheet.create({
   cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
   badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  viewerBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000000f2', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
+  viewerImg: { width: '100%', height: '80%' },
+  viewerClose: { color: '#fff', fontSize: 16, marginTop: 16 },
   bottleWrap: { width: 250, height: 250, borderRadius: 125, borderWidth: 2, borderColor: '#ffffff30', backgroundColor: '#ffffff0d', alignItems: 'center', justifyContent: 'center', marginVertical: 14 },
   bottleLbl: { position: 'absolute', fontSize: 15, fontWeight: '700' },
   chatRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
