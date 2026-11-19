@@ -1429,7 +1429,7 @@ export default function App() {
     resetReply();
     setRoomCode(null); setRoom(null); setRole(null);
     setJoinCode(''); setError(''); setNotice(''); setCustomMode(false); setCustomText('');
-    setPage(2); setScreen('home');
+    setPage(3); setScreen('games');
   };
   const choose = (side) => update(roomRef(), { pick: side, result: null });
   const flip = () => {
@@ -1803,7 +1803,7 @@ export default function App() {
   };
   const palName = pal ? (pal.name || pal.username) : '';
   const cidPath = (p) => 'couples/' + pal.chatId + '/' + p;
-  const backToGames = () => { setError(''); setNotice(''); setPage(2); setScreen('home'); };
+  const backToGames = () => { setError(''); setNotice(''); setPage(3); setScreen('games'); };
   const backToCouple = () => { setError(''); setNotice(''); setScreen('couple'); };
   const goScreen = (k) => { setError(''); setNotice(''); setPqData(null); setQuizIn(''); setScreen(k); };
 
@@ -2114,7 +2114,7 @@ export default function App() {
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
   else if (screen === 'join' || screen === 'room') th = themes.room;
   else if (screen === 'chat' || screen === 'dm' || screen === 'groups') th = themes.chat;
-  else if (screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
+  else if (screen === 'games' || screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
   else if (screen === 'couple' || screen === 'daily' || screen === 'mem' || screen === 'album' || screen === 'notes') th = themes.p3;
   else th = themes.settings;
   if (skin && skins[skin]) th = { ...th, ...skins[skin] };
@@ -2137,7 +2137,7 @@ export default function App() {
   );
   const dots = (n) => (
     <View style={s.dotRow}>
-      {[1, 2, 3].map((i) => <View key={i} style={[s.dot, i === n ? { width: 26, backgroundColor: th.accent } : null]} />)}
+      {[1, 3].map((i) => <View key={i} style={[s.dot, i === n ? { width: 26, backgroundColor: th.accent } : null]} />)}
     </View>
   );
   const Pic = ({ uri, emoji, size }) => uri
@@ -2242,7 +2242,7 @@ export default function App() {
     </>);
   };
 
-  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', tdhub: 'Truth or Dare Battle 🔥', style: 'Nexstyle ♡', settings: t('settings') };
+  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', games: 'NexGames 🎮', tdhub: 'Truth or Dare Battle 🔥', style: 'Nexstyle ♡', settings: t('settings') };
   const title = screen === 'home' ? (page === 1 ? null : page === 2 ? 'NexGames 🎮' : 'Make it special') : titles[screen] || (screen === 'join' ? 'Join' : null);
   const inChat = screen === 'chat' && !!chatCode;
   const inDm = screen === 'dm';
@@ -2517,26 +2517,22 @@ export default function App() {
           {!!error && <Text style={[s.sm, { color: '#ff6b6b' }]}>{error}</Text>}
         </View>
       ) : (<>
-        {!!title && !full && <Text style={screen === 'home' ? s.tStyled : s.t}>{title}</Text>}
+        {!!title && !full && <Text style={screen === 'home' || screen === 'games' ? s.tStyled : s.t}>{title}</Text>}
 
         {screen === 'home' && page === 1 && (<>
           <Text style={[s.welcome, { color: th.accent2 }]}>{t('welcome')}</Text>
           <View style={[s.rule, { backgroundColor: th.accent }]} />
           <Text style={[s.logo, { color: th.accent2, textShadowColor: th.accent }]}>Nexdare</Text>
-          <Btn big label={t('start')} onPress={() => setPage(2)} />
+          <Btn big label={t('start')} onPress={() => setPage(3)} />
           {dots(1)}
         </>)}
 
-        {screen === 'home' && page === 2 && (<>
+        {screen === 'games' && (<>
           <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />
           <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />
           <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
           <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
-          <View style={s.sideRow}>
-            <View style={{ marginHorizontal: 14 }}><Nav label={t('back')} onPress={() => setPage(1)} /></View>
-            <View style={{ marginHorizontal: 14 }}><Nav label={t('next')} onPress={() => setPage(3)} /></View>
-          </View>
-          {dots(2)}
+          <Nav label={t('back')} onPress={backToTools} />
         </>)}
 
         {screen === 'tdhub' && (<>
@@ -2553,13 +2549,14 @@ export default function App() {
         </>)}
 
         {screen === 'home' && page === 3 && (<>
+          <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />
           <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
           <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
           <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />
           <Btn label="🎨 Nexstyle ♡" onPress={() => setScreen('style')} />
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
           <Btn label={t('settings')} onPress={() => setScreen('settings')} />
-          <Nav label={t('back')} onPress={() => setPage(2)} />
+          <Nav label={t('back')} onPress={() => setPage(1)} />
           {dots(3)}
         </>)}
 
