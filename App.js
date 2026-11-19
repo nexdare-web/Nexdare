@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-  Linking, ScrollView, Platform, Share, Image as RNImage, Switch
+  Linking, ScrollView, Platform, Share, Image as RNImage, Switch, Animated, Easing
 } from 'react-native';
 
 if (typeof localStorage === 'undefined') {
@@ -1431,11 +1431,26 @@ export default function App() {
     setJoinCode(''); setError(''); setNotice(''); setCustomMode(false); setCustomText('');
     setPage(3); setScreen('games');
   };
-  const choose = (side) => update(roomRef(), { pick: side, result: null });
-  const flip = () => {
-    const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
-    update(roomRef(), { result, asker: result === room.pick ? 'P1' : 'P2' });
-    playSound('success', soundOn);
+  // ---- Spin the bottle (coin flip ki jagah) ----
+  const bottleRot = useRef(new Animated.Value(0)).current;
+  const spinSeen = useRef(0);
+  const [spinDone, setSpinDone] = useState(false);
+  useEffect(() => {
+    if (!room || room.stage !== 'flip' || !room.spin) return;
+    if (spinSeen.current === room.spin.t) return;
+    spinSeen.current = room.spin.t;
+    setSpinDone(false);
+    bottleRot.setValue(0);
+    Animated.timing(bottleRot, { toValue: room.spin.deg, duration: 3800, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      .start(() => { setSpinDone(true); playSound('success', soundOn); });
+  }, [room && room.spin && room.spin.t, room && room.stage]);
+  const spinBottle = () => {
+    let deg = 0;
+    do { deg = 1440 + Math.floor(Math.random() * 360) + Math.floor(Math.random() * 3) * 360; }
+    while (Math.abs(Math.cos(((deg % 360) * Math.PI) / 180)) < 0.15);
+    const asker = Math.cos(((deg % 360) * Math.PI) / 180) > 0 ? 'P2' : 'P1';
+    playSound('click', soundOn);
+    update(roomRef(), { spin: { deg, t: Date.now() }, result: 'Bottle', asker });
   };
   const startBattle = () => update(roomRef(), { stage: 'game' });
 
@@ -2174,17 +2189,24 @@ export default function App() {
       </>);
     }
     if (room.stage === 'flip') {
+      const rot = bottleRot.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] });
+      const lblTop = 'P2' + (me === 'P2' ? ' (You)' : '');
+      const lblBot = 'P1' + (me === 'P1' ? ' (You)' : '');
       return (<>
         <Text style={s.sm}>{t('youAre')} {me}</Text>
-        {me === 'P1' && !room.result && (<>
-          <Text style={s.bt}>{t('chooseSide')}</Text>
-          <Btn label={(room.pick === 'Heads' ? '✅ ' : '') + 'Heads'} onPress={() => choose('Heads')} />
-          <Btn label={(room.pick === 'Tails' ? '✅ ' : '') + 'Tails'} onPress={() => choose('Tails')} />
-          {room.pick && <Btn label={t('flip')} onPress={flip} />}
-        </>)}
-        {me === 'P2' && !room.result && <Text style={s.bt}>{t('waitingFlip')}</Text>}
-        {room.result && (<>
-          <Text style={s.t}>{t('result')} {room.result}</Text>
+        <Text style={s.sm}>Bottle jiski taraf ruke, wo pehla sawal puchhega 🍾</Text>
+        <View style={s.bottleWrap}>
+          <Text style={[s.bottleLbl, { top: 4, color: th.accent2 }]}>{lblTop}</Text>
+          <Animated.View style={{ width: 60, height: 200, alignItems: 'center', transform: [{ rotate: rot }] }}>
+            <View style={{ width: 18, height: 78, backgroundColor: th.accent, borderTopLeftRadius: 6, borderTopRightRadius: 6 }} />
+            <View style={{ width: 46, height: 122, backgroundColor: th.accent, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 10, borderBottomRightRadius: 10, opacity: 0.85 }} />
+          </Animated.View>
+          <Text style={[s.bottleLbl, { bottom: 4, color: th.accent2 }]}>{lblBot}</Text>
+        </View>
+        {!room.spin && me === 'P1' && <Btn label="🍾 Bottle ghumao" onPress={spinBottle} />}
+        {!room.spin && me === 'P2' && <Text style={s.bt}>P1 bottle ghumane wala hai...</Text>}
+        {!!room.spin && !spinDone && <Text style={s.sm}>Bottle ghoom rahi hai...</Text>}
+        {!!room.spin && spinDone && (<>
           <Text style={s.bt}>{room.asker} {t('firstAsk')}</Text>
           {me === 'P1' && <Btn label={t('startBattle')} onPress={startBattle} />}
           {me === 'P2' && <Text style={s.sm}>P1 will start the battle...</Text>}
@@ -2536,7 +2558,7 @@ export default function App() {
         </>)}
 
         {screen === 'tdhub' && (<>
-          <Text style={s.sm}>Dono players ko ek room code se jodo. Coin flip se shuru hota hai.</Text>
+          <Text style={s.sm}>Dono players ko ek room code se jodo. Bottle ghumake shuru hota hai.</Text>
           <View style={s.sideRow}>
             <TouchableOpacity style={[s.b, s.bHalf, { backgroundColor: th.accent, shadowColor: th.accent }]} onPress={() => { playSound('click', soundOn); createRoom(); }}>
               <Text style={[s.bt, { textAlign: 'center' }]}>{t('createRoom')}</Text>
@@ -3045,6 +3067,8 @@ const s = StyleSheet.create({
   cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
   badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  bottleWrap: { width: 250, height: 250, borderRadius: 125, borderWidth: 2, borderColor: '#ffffff30', backgroundColor: '#ffffff0d', alignItems: 'center', justifyContent: 'center', marginVertical: 14 },
+  bottleLbl: { position: 'absolute', fontSize: 15, fontWeight: '700' },
   chatRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
   avWrap: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#ffffff1f', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   rowTitle: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700' },
