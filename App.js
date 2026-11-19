@@ -508,6 +508,127 @@ const fmtListTime = (t) => {
 };
 // ===== GROUP CHAT HELPERS END =====
 
+// ===== GAMES + COUPLE DATA =====
+const WYR = [
+  ['Har weekend lambi drive par jaana', 'Har weekend ghar par saath movie dekhna'],
+  ['Hamesha subah ka saath', 'Hamesha raat ka saath'],
+  ['Surprise gift paana', 'Surprise date par jaana'],
+  ['Pahaad ki trip', 'Samundar ki trip'],
+  ['Roz ek love letter paana', 'Roz ek voice note paana'],
+  ['Saath me khaana banana', 'Bahar restaurant me khaana'],
+  ['Bahut saare dost, kam alone time', 'Kam dost, zyada couple time'],
+  ['Saath me dance seekhna', 'Saath me koi instrument seekhna'],
+  ['Barish me bheegna', 'Sardi me kambal me chai peena'],
+  ['Pehli date dobara jeena', 'Apni shaadi ka din pehle dekhna'],
+  ['Train ka lamba safar', 'Flight ka safar'],
+  ['Hamesha sach bolna', 'Hamesha surprise banaye rakhna'],
+  ['Saal me ek bada gift', 'Har mahine chhote gift'],
+  ['Partner ko gaana sunana', 'Partner se gaana sunna'],
+  ['Raat bhar baatein karna', 'Raat bhar movie marathon'],
+  ['Street food date', 'Candle light dinner'],
+  ['Same colour ke kapde pehnna', 'Same phone cover lagana'],
+  ['Ek hafte phone-free saath rehna', 'Ek hafte door rehkar roz video call'],
+  ['Saath me pet paalna', 'Saath me plants ugaana'],
+  ['Zindagi bhar sirf meetha khana', 'Zindagi bhar sirf teekha khana'],
+  ['Sunrise dekhna', 'Sunset dekhna'],
+  ['Partner ke liye love song likhna', 'Partner ke liye love poem likhna'],
+  ['Cycling trip', 'Bike trip'],
+  ['Chhoti si pyaari shaadi', 'Badi dhoom-dhaam wali shaadi'],
+  ['Hamesha birthday yaad rakhna', 'Hamesha anniversary yaad rakhna'],
+  ['Ek raat taare dekhna', 'Ek raat bonfire ke paas baithna'],
+  ['Ek din bina phone ke bitana', 'Ek din bina internet ke bitana'],
+  ['Partner ke saath shopping', 'Partner ke saath trekking'],
+  ['Hamesha late par romantic rehna', 'Hamesha time par par simple rehna'],
+  ['Saath me koi naya shauk seekhna', 'Saath me koi purani yaad dobara jeena'],
+];
+const NHIE = [
+  'Maine kabhi kisi ka purana message dobara padha hai.',
+  'Maine kabhi raat ko bina wajah kisi ko yaad kiya hai.',
+  'Maine kabhi kisi ke liye gaana dedicate kiya hai.',
+  'Maine kabhi galat number par message bhej diya hai.',
+  'Maine kabhi kisi se milne ke liye ghar par bahana banaya hai.',
+  'Maine kabhi kisi ka birthday bhool kar baad me bahana banaya hai.',
+  'Maine kabhi poori raat kisi se baatein ki hain.',
+  'Maine kabhi kisi ko ignore karke baad me pachhtaya hai.',
+  'Maine kabhi aaine ke saamne baat practice ki hai.',
+  'Maine kabhi movie dekhte dekhte neend nikaal li hai.',
+  'Maine kabhi kisi ki photo chupke se save ki hai.',
+  'Maine kabhi pehli date par bahut ghabrahat mehsoos ki hai.',
+  'Maine kabhi apni galti hote hue bhi sorry nahi bola.',
+  'Maine kabhi jaanbujh kar reply late kiya hai.',
+  'Maine kabhi surprise ke liye jhooth bola hai.',
+  'Maine kabhi kisi ke saamne rote hue khud ko roka hai.',
+  'Maine kabhi raat 3 baje tak kisi se chat ki hai.',
+  'Maine kabhi chupke se kisi ka profile baar baar dekha hai.',
+  'Maine kabhi khaane ke liye jhagda kiya hai.',
+  'Maine kabhi kisi ko miss karke akele gaana suna hai.',
+  'Maine kabhi kisi ka call jaanbujh kar miss kiya hai.',
+  'Maine kabhi kisi ko nickname se save kiya hai.',
+  'Maine kabhi bina bataye kisi ke liye kuch banaya hai.',
+  'Maine kabhi kisi ki wajah se apna plan cancel kiya hai.',
+  'Maine kabhi baat karte hue time ka pata hi nahi chala.',
+  'Maine kabhi kisi ko dekhkar socha hai ki yahi hai.',
+  'Maine kabhi kisi ke liye subah jaldi uthkar kuch kiya hai.',
+  'Maine kabhi kisi ko galti se galat naam se bulaya hai.',
+  'Maine kabhi kisi se baat karte hue phone ki battery khatam kar di hai.',
+  'Maine kabhi kisi ka gift sabse chhupa kar rakha hai.',
+];
+const QUIZ_Q = [
+  'Meri favourite khaane ki cheez kaunsi hai?', 'Mera favourite colour kaunsa hai?', 'Meri favourite movie ya series kaunsi hai?',
+  'Mera sabse bada darr kya hai?', 'Main kaunsi jagah jaana chahta/chahti hoon?', 'Mera favourite gaana kaunsa hai?',
+  'Bachpan me mera nickname kya tha?', 'Meri sabse achhi yaad kaunsi hai?', 'Main sabse zyada kis cheez se chidta/chidti hoon?',
+  'Mera dream job kya hai?', 'Mera favourite season kaunsa hai?', 'Main tension me kya karta/karti hoon?',
+  'Mera favourite dessert kaunsa hai?', 'Main subah ka insaan hoon ya raat ka?', 'Mera sabse bada sapna kya hai?',
+  'Meri favourite hobby kaunsi hai?', 'Mera favourite festival kaunsa hai?', 'Mujhe kis cheez se sabse zyada khushi milti hai?',
+  'Main chai peeta/peeti hoon ya coffee, aur kaise?', 'Mera favourite kapda kaunsa hai?', 'Mera favourite hero ya heroine kaun hai?',
+  'Meri sabse badi aadat jo mujhe khud pasand nahi?', 'Main kisi me sabse pehle kya notice karta/karti hoon?',
+  'Meri favourite aawaz ya sound kaunsi hai?', 'Main bachpan me kya banna chahta/chahti thi?',
+];
+const DAILY = [
+  'Aaj tumhe sabse zyada kis baat ne khush kiya?', 'Meri kaunsi aadat tumhe sabse pyaari lagti hai?',
+  'Agar aaj hum saath hote to kya karte?', 'Hamari pehli mulaqat me tumhe kya laga tha?',
+  'Tumhari life ka sabse achha din kaunsa tha?', 'Tumhe mere saath kaunsi cheez karni sabse pasand hai?',
+  'Agar ek superpower milti to kaunsi aur kyun?', 'Tumhara aaj ka mood ek gaane me batao.',
+  'Hum dono ka ek sapna jo saath poora karna hai?', 'Meri kaunsi baat tumhe hasaati hai?',
+  'Tum kis cheez ke liye mujhe thank you kehna chahte ho?', 'Agar kal chhutti ho to hum kya karein?',
+  'Tumhe mere baare me sabse zyada kya pasand hai?', 'Aaj tumne kuch naya seekha?',
+  'Tumhari favourite yaad hamari kaunsi hai?', 'Agar hum ek din ke liye kahin bhi ja sakein, kahan jaayein?',
+  'Koi baat jo tum mujhse share karna chahte ho par kar nahi paaye?', 'Tumhe kya lagta hai 5 saal baad hum kahan honge?',
+  'Ek chhoti si cheez jo mujhe khush kar de?', 'Aaj tumne kiski tareef ki?',
+  'Meri kaunsi photo tumhe sabse pasand hai?', 'Tumhara favourite weekend plan kya hai?',
+  'Tum mujhe kis gaane se yaad karte ho?', 'Aaj ki sabse funny baat kya hui?',
+  'Hamare rishte ki sabse khoobsurat baat kya hai?', 'Agar main kal udaas hoon to tum kya karoge?',
+  'Bachpan ka tumhara sabse pyaara khel kaunsa tha?', 'Ek cheez jo tum mere saath pehli baar karna chahte ho?',
+  'Aaj ka tumhara sabse achha pal kaunsa tha?', 'Meri kaunsi cheez tum kabhi badalna nahi chahoge?',
+  'Aaj tumhe mujhse kya kehna tha jo reh gaya?', 'Tumhe kaisi subah pasand hai?',
+  'Tum apne aap me kaunsi baat sudharna chahte ho?', 'Mujhe ek line me describe karo.',
+  'Agar hum ek movie hote to uska naam kya hota?', 'Tumhe kis jagah par sabse zyada sukoon milta hai?',
+  'Hum dono me sabse badi samaanta kya hai?', 'Aaj tumne khud ke liye kya kiya?',
+  'Meri kaunsi baat sunna tumhe pasand hai?', 'Tum kis pal me sabse zyada khush hote ho?',
+  'Tumhe hamari kaunsi date sabse special lagi?', 'Agle mahine tum kya karna chahte ho jisme main saath doon?',
+  'Aaj tumne mere baare me kya socha?', 'Aaj ka din ek emoji me batao aur kyun.',
+  'Mujhse kaunsa sawal tum hamesha poochna chahte the?',
+];
+const dayKey = (d) => {
+  const x = d || new Date();
+  return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+};
+const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+const compressImageTo = (dataUrl, max, q) => new Promise((res, rej) => {
+  const img = new window.Image();
+  img.onload = () => {
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * scale);
+    c.height = Math.round(img.height * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    res(c.toDataURL('image/jpeg', q));
+  };
+  img.onerror = () => rej(new Error('Photo khul nahi payi'));
+  img.src = dataUrl;
+});
+// ===== GAMES + COUPLE DATA END =====
+
 export default function App() {
   const [page, setPage] = useState(1);
   const [screen, setScreen] = useState('home');
@@ -606,6 +727,34 @@ export default function App() {
   const grpCount = useRef(-1);
   const peerCache = useRef({});
   const previewKey = useRef({});
+  const blocksRef = useRef({});
+  const [pal, setPal] = useState(null);
+  const [palAes, setPalAes] = useState(null);
+  const [palPicking, setPalPicking] = useState(false);
+  const [pqData, setPqData] = useState(null);
+  const [quiz, setQuiz] = useState(null);
+  const [quizPlain, setQuizPlain] = useState({});
+  const [quizIn, setQuizIn] = useState('');
+  const [quizQ, setQuizQ] = useState('');
+  const [dailyDoc, setDailyDoc] = useState(null);
+  const [dailyPlain, setDailyPlain] = useState({});
+  const [dailyIn, setDailyIn] = useState('');
+  const [streakBase, setStreakBase] = useState(0);
+  const [memDoc, setMemDoc] = useState(null);
+  const [memPlain, setMemPlain] = useState([]);
+  const [memStart, setMemStart] = useState('');
+  const [memEditing, setMemEditing] = useState(false);
+  const [evTitle, setEvTitle] = useState('');
+  const [evDate, setEvDate] = useState('');
+  const [notesDoc, setNotesDoc] = useState(null);
+  const [notesPlain, setNotesPlain] = useState([]);
+  const [noteText, setNoteText] = useState('');
+  const [noteWhen, setNoteWhen] = useState('now');
+  const [albumItems, setAlbumItems] = useState([]);
+  const [albumBusy, setAlbumBusy] = useState(false);
+  const [blocks, setBlocks] = useState({});
+  const [dmMenu, setDmMenu] = useState('');
+  const [delConfirm, setDelConfirm] = useState(false);
 
   const [uiLang, setUiLang] = useState(localStorage.getItem('nexdare_lang') || 'en');
   const [, bump] = useState(0);
@@ -871,7 +1020,7 @@ export default function App() {
     if (subtle) loadIdentity().then(setIdent).catch(() => {});
     setScreen('dm');
   };
-  const leaveDm = () => { setDmFriend(null); setDmShared(null); setDmPlain([]); setDmRaw({}); setDmSel(null); setEditing(null); setError(''); setNotice(''); setScreen('friends'); };
+  const leaveDm = () => { setDmFriend(null); setDmShared(null); setDmPlain([]); setDmRaw({}); setDmSel(null); setEditing(null); setDmMenu(''); setError(''); setNotice(''); setScreen('friends'); };
 
   const sendDm = async () => {
     const text = dmText.trim();
@@ -1127,7 +1276,7 @@ export default function App() {
     if (!isLoggedIn || !currentUser || !currentUser.username) return;
     const uid = currentUser.uid;
     const u1 = onValue(ref(db, 'friends/' + uid), (snap) => setCloudFriends(snap.val() || {}));
-    const u2 = onValue(ref(db, 'friendReqs/' + uid), (snap) => setFriendReqs(snap.val() || {}));
+    const u2 = onValue(ref(db, 'friendReqs/' + uid), (snap) => { const v = snap.val() || {}; const o = {}; Object.keys(v).forEach((k) => { if (!blocksRef.current[k]) o[k] = v[k]; }); setFriendReqs(o); });
     return () => { u1(); u2(); };
   }, [isLoggedIn, currentUser && currentUser.uid, currentUser && currentUser.username]);
 
@@ -1635,6 +1784,323 @@ export default function App() {
   }, [grpKey, grpRaw]);
   // ===== GROUP CHAT + CHAT LIST PREVIEW END =====
 
+  // ===== GAMES + COUPLE SPACE + SAFETY =====
+  const getPeer = async (f) => {
+    let pc = peerCache.current[f.uid];
+    if (pc) return pc;
+    const idn = await loadIdentity();
+    const prof = await call('GET', 'profiles/' + f.uid);
+    if (!prof || !prof.pub) return null;
+    const sh = await deriveShared(idn.priv, prof.pub);
+    pc = { aes: sh.aes, photo: prof.photo || '' };
+    peerCache.current[f.uid] = pc;
+    if (pc.photo) setPics((p) => ({ ...p, [f.uid]: pc.photo }));
+    return pc;
+  };
+  const choosePal = (f) => {
+    setPal(f); setPalPicking(false);
+    try { localStorage.setItem('nexdare_pal', f.uid); } catch (e) {}
+  };
+  const palName = pal ? (pal.name || pal.username) : '';
+  const cidPath = (p) => 'couples/' + pal.chatId + '/' + p;
+  const backToGames = () => { setError(''); setNotice(''); setPage(2); setScreen('home'); };
+  const backToCouple = () => { setError(''); setNotice(''); setScreen('couple'); };
+  const goScreen = (k) => { setError(''); setNotice(''); setPqData(null); setQuizIn(''); setScreen(k); };
+
+  useEffect(() => {
+    const keys = Object.keys(cloudFriends);
+    if (!keys.length) return;
+    let saved = null;
+    try { saved = localStorage.getItem('nexdare_pal'); } catch (e) {}
+    if (!pal && saved && cloudFriends[saved]) setPal(cloudFriends[saved]);
+    else if (pal && !cloudFriends[pal.uid]) setPal(null);
+  }, [JSON.stringify(Object.keys(cloudFriends))]);
+
+  useEffect(() => {
+    setPalAes(null);
+    if (!pal || !subtle) return;
+    let c = false;
+    (async () => { try { const pc = await getPeer(pal); if (pc && !c) setPalAes(pc.aes); } catch (e) {} })();
+    return () => { c = true; };
+  }, [pal && pal.uid, palPicking]);
+
+  blocksRef.current = blocks;
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !currentUser.username) return;
+    const u = onValue(ref(db, 'blocks/' + currentUser.uid), (snap) => setBlocks(snap.val() || {}));
+    return () => u();
+  }, [isLoggedIn, currentUser && currentUser.uid]);
+
+  const loadStreak = async () => {
+    if (!pal || !currentUser) return;
+    try {
+      const v = (await call('GET', cidPath('daily'), undefined, 'orderBy=%22%24key%22&limitToLast=60')) || {};
+      let n = 0;
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      for (let i = 0; i < 60; i++) {
+        const e = v[dayKey(d)];
+        if (e && e[currentUser.uid] && e[pal.uid]) { n++; d.setDate(d.getDate() - 1); } else break;
+      }
+      setStreakBase(n);
+    } catch (e) {}
+  };
+  useEffect(() => { if ((screen === 'couple' || screen === 'daily') && pal) loadStreak(); }, [screen, pal && pal.uid]);
+
+  useEffect(() => {
+    if (!pal || !isLoggedIn) return;
+    const subs = [];
+    if (screen === 'wyr' || screen === 'nhie') subs.push(onValue(ref(db, cidPath(screen)), (snap) => setPqData({ kind: screen, v: snap.val() })));
+    if (screen === 'quiz') subs.push(onValue(ref(db, cidPath('quiz')), (snap) => setQuiz(snap.val())));
+    if (screen === 'daily') subs.push(onValue(ref(db, cidPath('daily/' + dayKey())), (snap) => setDailyDoc(snap.val())));
+    if (screen === 'mem') subs.push(onValue(ref(db, cidPath('mem')), (snap) => setMemDoc(snap.val())));
+    if (screen === 'notes') subs.push(onValue({ path: cidPath('notes'), query: 'orderBy=%22%24key%22&limitToLast=50' }, (snap) => setNotesDoc(snap.val())));
+    return () => subs.forEach((u) => u());
+  }, [screen, pal && pal.uid, isLoggedIn]);
+
+  // ---- Would You Rather / Never Have I Ever ----
+  const pqCur = (kind) => (pqData && pqData.kind === kind ? pqData.v : null);
+  const pqNext = async (kind) => {
+    const list = kind === 'wyr' ? WYR : NHIE;
+    const cur = pqCur(kind);
+    let used = (cur && cur.used) || [];
+    if (used.length >= list.length) used = [];
+    const pool = list.map((_, i) => i).filter((i) => !used.includes(i));
+    const qi = pickOne(pool);
+    try { await set(ref(db, cidPath(kind)), { qi, used: [...used, qi], n: ((cur && cur.n) || 0) + 1 }); playSound('click', soundOn); }
+    catch (e) { setError('Error: ' + e.message); }
+  };
+  const pqPick = async (kind, i) => {
+    try { await update(ref(db, cidPath(kind + '/picks')), { [currentUser.uid]: i }); playSound('click', soundOn); }
+    catch (e) { setError('Error: ' + e.message); }
+  };
+
+  // ---- Love Quiz ----
+  const pickQuizQ = () => {
+    const used = (quiz && quiz.used) || [];
+    let pool = QUIZ_Q.map((_, i) => i).filter((i) => !used.includes(i));
+    if (!pool.length) pool = QUIZ_Q.map((_, i) => i);
+    setQuizQ(QUIZ_Q[pickOne(pool)]);
+  };
+  const quizStart = async (askerUid) => {
+    try {
+      await set(ref(db, cidPath('quiz')), { stage: 'pick', asker: askerUid, scores: (quiz && quiz.scores) || {}, used: (quiz && quiz.used) || [] });
+      setQuizQ(''); setQuizIn('');
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const quizSend = async () => {
+    const q = quizQ.trim(); const a = quizIn.trim();
+    if (!q || !a) { setError('Sawal aur jawab dono likho'); return; }
+    try {
+      const enc = await encryptText(palAes, a);
+      const used = (quiz && quiz.used) || [];
+      const idx = QUIZ_Q.indexOf(q);
+      await update(ref(db, cidPath('quiz')), { stage: 'guess', q, a: enc, g: null, used: idx >= 0 ? [...used, idx] : used });
+      setQuizIn(''); setQuizQ(''); setError('');
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const quizGuess = async () => {
+    const g = quizIn.trim();
+    if (!g) { setError('Apna guess likho'); return; }
+    try {
+      const enc = await encryptText(palAes, g);
+      await update(ref(db, cidPath('quiz')), { stage: 'judge', g: enc });
+      setQuizIn(''); setError('');
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const quizJudge = async (ok) => {
+    try {
+      const sc = { ...((quiz && quiz.scores) || {}) };
+      const guesser = quiz.asker === currentUser.uid ? pal.uid : currentUser.uid;
+      sc[guesser] = (sc[guesser] || 0) + (ok ? 1 : 0);
+      await update(ref(db, cidPath('quiz')), { stage: 'done', scores: sc, correct: !!ok });
+      playSound(ok ? 'success' : 'click', soundOn);
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const quizReset = async () => { try { await remove(ref(db, cidPath('quiz'))); setQuiz(null); } catch (e) { setError('Error: ' + e.message); } };
+  useEffect(() => {
+    if (screen === 'quiz' && quiz && quiz.stage === 'pick' && currentUser && quiz.asker === currentUser.uid && !quizQ) pickQuizQ();
+  }, [quiz, screen]);
+  useEffect(() => {
+    if (!palAes || !quiz) { setQuizPlain({}); return; }
+    let c = false;
+    (async () => {
+      const a = quiz.a ? await decryptText(palAes, quiz.a) : null;
+      const g = quiz.g ? await decryptText(palAes, quiz.g) : null;
+      if (!c) setQuizPlain({ a, g });
+    })();
+    return () => { c = true; };
+  }, [palAes, JSON.stringify(quiz)]);
+
+  // ---- Daily question ----
+  const dailySend = async () => {
+    const text = dailyIn.trim();
+    if (!text) return;
+    try {
+      const enc = await encryptText(palAes, text);
+      await set(ref(db, cidPath('daily/' + dayKey() + '/' + currentUser.uid)), enc);
+      setDailyIn(''); setError('');
+      playSound('success', soundOn);
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  useEffect(() => {
+    if (!palAes || !dailyDoc) { setDailyPlain({}); return; }
+    let c = false;
+    (async () => {
+      const out = {};
+      for (const uid of Object.keys(dailyDoc)) out[uid] = await decryptText(palAes, dailyDoc[uid]);
+      if (!c) setDailyPlain(out);
+    })();
+    return () => { c = true; };
+  }, [palAes, JSON.stringify(dailyDoc)]);
+
+  // ---- Together / memories ----
+  const memSaveStart = async () => {
+    if (!memStart) { setError('Date chuno'); return; }
+    try { await update(ref(db, cidPath('mem')), { start: memStart }); setMemEditing(false); setError(''); } catch (e) { setError('Error: ' + e.message); }
+  };
+  const memAddEvent = async () => {
+    const title = evTitle.trim();
+    if (!title || !evDate) { setError('Naam aur date dono chuno'); return; }
+    try {
+      const enc = await encryptText(palAes, title);
+      await set(ref(db, cidPath('mem/events/' + randomId())), { iv: enc.iv, ct: enc.ct, date: evDate });
+      setEvTitle(''); setEvDate(''); setError('');
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const memDelEvent = async (id) => { try { await remove(ref(db, cidPath('mem/events/' + id))); } catch (e) { setError('Error: ' + e.message); } };
+  useEffect(() => {
+    if (!palAes || !memDoc || !memDoc.events) { setMemPlain([]); return; }
+    let c = false;
+    (async () => {
+      const out = [];
+      for (const id of Object.keys(memDoc.events)) {
+        const e = memDoc.events[id];
+        const title = await decryptText(palAes, e);
+        out.push({ id, date: e.date, title: title || '🔒' });
+      }
+      out.sort((a, b) => (a.date < b.date ? -1 : 1));
+      if (!c) setMemPlain(out);
+    })();
+    return () => { c = true; };
+  }, [palAes, JSON.stringify(memDoc && memDoc.events)]);
+
+  // ---- Sweet notes ----
+  const unlockFor = (k) => {
+    const d = new Date();
+    if (k === '1h') return Date.now() + 3600000;
+    if (k === 'am8') { d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0); return d.getTime(); }
+    if (k === 'pm9') { d.setHours(21, 0, 0, 0); if (d.getTime() < Date.now() + 600000) d.setDate(d.getDate() + 1); return d.getTime(); }
+    return Date.now();
+  };
+  const noteSend = async () => {
+    const text = noteText.trim();
+    if (!text) return;
+    try {
+      const enc = await encryptText(palAes, text);
+      await push(ref(db, cidPath('notes')), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, unlock: unlockFor(noteWhen), t: Date.now() });
+      setNoteText(''); setError(''); setNotice('Note bhej diya 💌');
+      playSound('success', soundOn);
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  useEffect(() => {
+    if (!palAes || !notesDoc) { setNotesPlain([]); return; }
+    let c = false;
+    (async () => {
+      const out = [];
+      for (const k of Object.keys(notesDoc)) {
+        const m = notesDoc[k];
+        const text = await decryptText(palAes, m);
+        out.push({ key: k, from: m.from, t: m.t, unlock: m.unlock || m.t, text: text || '🔒' });
+      }
+      out.sort((a, b) => b.t - a.t);
+      if (!c) setNotesPlain(out);
+    })();
+    return () => { c = true; };
+  }, [palAes, JSON.stringify(notesDoc)]);
+
+  // ---- Album ----
+  const albumLoad = async () => {
+    if (!pal || !palAes) return;
+    try {
+      const ids = (await call('GET', cidPath('album'), undefined, 'shallow=true')) || {};
+      const keys = Object.keys(ids).slice(-12);
+      const out = [];
+      for (const k of keys) {
+        const v = await call('GET', cidPath('album/' + k));
+        if (!v) continue;
+        const data = await decryptText(palAes, v);
+        if (data) out.push({ id: k, from: v.from, t: v.t, data });
+      }
+      out.sort((a, b) => b.t - a.t);
+      setAlbumItems(out);
+    } catch (e) { setError('Album load nahi hua: ' + e.message); }
+  };
+  useEffect(() => { if (screen === 'album' && palAes) albumLoad(); }, [screen, palAes]);
+  const albumAdd = () => {
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      setAlbumBusy(true); setError('');
+      try {
+        const small = await compressImageTo(await readAsDataUrl(f), 900, 0.65);
+        const enc = await encryptText(palAes, small);
+        await push(ref(db, cidPath('album')), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
+        await albumLoad();
+      } catch (e) { setError('Photo nahi gayi: ' + e.message); }
+      setAlbumBusy(false);
+    };
+    input.click();
+  };
+  const albumDelete = async (id) => { try { await remove(ref(db, cidPath('album/' + id))); await albumLoad(); } catch (e) { setError('Error: ' + e.message); } };
+
+  // ---- Block / Report / Delete account ----
+  const reportUser = async (reason) => {
+    if (!dmFriend || !currentUser) return;
+    try {
+      await push(ref(db, 'reports'), { by: currentUser.uid, target: dmFriend.uid, username: dmFriend.username, reason, t: Date.now() });
+      setDmMenu(''); setNotice('Report bhej di gayi ✅');
+    } catch (e) { setError('Report nahi gayi: ' + e.message); }
+  };
+  const blockUser = async (f) => {
+    if (!f || !currentUser) return;
+    try {
+      await set(ref(db, 'blocks/' + currentUser.uid + '/' + f.uid), { username: f.username, name: f.name || f.username, t: Date.now() });
+      await remove(ref(db, 'friends/' + currentUser.uid + '/' + f.uid)).catch(() => {});
+      await remove(ref(db, 'friends/' + f.uid + '/' + currentUser.uid)).catch(() => {});
+      setDmMenu(''); leaveDm(); setNotice('@' + f.username + ' block ho gaya 🚫');
+    } catch (e) { setError('Block nahi hua: ' + e.message); }
+  };
+  const unblockUser = async (uid) => { try { await remove(ref(db, 'blocks/' + currentUser.uid + '/' + uid)); } catch (e) { setError('Error: ' + e.message); } };
+  const deleteAccount = async () => {
+    if (!currentUser) return;
+    setError('');
+    try {
+      const uid = currentUser.uid;
+      const tok = await getToken();
+      const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:delete?key=' + FIREBASE_API_KEY, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d.error && d.error.message) || 'delete failed'); }
+      for (const k of Object.keys(cloudFriends)) {
+        const f = cloudFriends[k];
+        await remove(ref(db, 'friends/' + k + '/' + uid)).catch(() => {});
+        await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
+        await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
+      }
+      const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid];
+      if (currentUser.username) paths.push('usernames/' + currentUser.username);
+      for (const p of paths) await remove(ref(db, p)).catch(() => {});
+      clearAllData(); logout(); setDelConfirm(false);
+      setNotice('Account delete ho gaya.');
+    } catch (e) {
+      setError('Account delete nahi hua: ' + e.message + '. Ek baar logout karke dobara login karo, phir try karo.');
+    }
+  };
+  // ===== GAMES + COUPLE SPACE + SAFETY END =====
+
   // ===== PART 2 END. Neeche Part 3 paste karo (const Btn se shuru) =====
 
   const visible = plain.filter((m) => !hidden.includes(m.key));
@@ -1648,6 +2114,8 @@ export default function App() {
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
   else if (screen === 'join' || screen === 'room') th = themes.room;
   else if (screen === 'chat' || screen === 'dm' || screen === 'groups') th = themes.chat;
+  else if (screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
+  else if (screen === 'couple' || screen === 'daily' || screen === 'mem' || screen === 'album' || screen === 'notes') th = themes.p3;
   else th = themes.settings;
   if (skin && skins[skin]) th = { ...th, ...skins[skin] };
 
@@ -1774,17 +2242,237 @@ export default function App() {
     </>);
   };
 
-  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', style: 'Nexstyle ♡', settings: t('settings') };
-  const title = screen === 'home' ? (page === 1 ? null : page === 2 ? 'Let the battle begin' : 'Make it special') : titles[screen] || (screen === 'join' ? 'Join' : null);
+  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', tdhub: 'Truth or Dare Battle 🔥', style: 'Nexstyle ♡', settings: t('settings') };
+  const title = screen === 'home' ? (page === 1 ? null : page === 2 ? 'NexGames 🎮' : 'Make it special') : titles[screen] || (screen === 'join' ? 'Join' : null);
   const inChat = screen === 'chat' && !!chatCode;
   const inDm = screen === 'dm';
   const inGame = screen === 'room' && !!room && room.stage === 'game';
   const needUsername = isLoggedIn && !!currentUser && !currentUser.username;
   const friendSeen = dmFriend ? (dmSeen[dmFriend.uid] || 0) : 0;
   const partnerName = chatData && chatData.names && ident ? (Object.keys(chatData.names).filter((k) => k !== ident.sid).map((k) => chatData.names[k])[0] || t('partner')) : t('partner');
-  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings'].includes(screen);
+  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
   const sc = { alignItems: 'center', paddingBottom: 40, width: '100%' };
   const PH = '#ffffff88';
+
+  const myUidX = currentUser ? currentUser.uid : '';
+  const dateInput = (value, onChange) => (Platform.OS === 'web'
+    ? React.createElement('input', { type: 'date', value, onChange: (e) => onChange(e.target.value), style: { width: '80%', padding: 12, borderRadius: 14, border: '1px solid #ffffff44', background: '#ffffff18', color: '#fff', fontSize: 16, colorScheme: 'dark', margin: '6px 0' } })
+    : <TextInput style={s.i} placeholder="YYYY-MM-DD" placeholderTextColor={PH} value={value} onChangeText={onChange} />);
+
+  const pairGate = (content) => {
+    if (!subtle) return <Text style={s.sm}>{t('needBrowserChat')}</Text>;
+    if (!pal || palPicking) {
+      const fl = Object.keys(cloudFriends).map((k) => cloudFriends[k]);
+      return (<>
+        <Text style={s.sm}>Kiske saath khelna hai? Apne 💌 Message wale dost me se chuno</Text>
+        {fl.length === 0 && <Text style={s.sm}>Abhi koi friend nahi hai. Pehle Message me friend add karo.</Text>}
+        <View style={{ width: '100%' }}>
+          {fl.map((f) => chatRow({ rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username, sub: '@' + f.username, onPress: () => choosePal(f) }))}
+        </View>
+        {palPicking && !!pal && <Mini label={t('cancel')} onPress={() => setPalPicking(false)} />}
+      </>);
+    }
+    return (<>
+      <View style={s.miniRow}>
+        <Text style={[s.sm, { marginRight: 10, alignSelf: 'center' }]}>Saath: {(pal.avatar || '😎') + ' ' + palName}</Text>
+        <Mini label="Badlo" onPress={() => setPalPicking(true)} />
+      </View>
+      {!palAes ? <Text style={s.sm}>⏳ Encryption key ban rahi hai... {palName} ko ek baar app kholne ko bolo.</Text> : content}
+    </>);
+  };
+
+  const renderPq = (kind) => {
+    const list = kind === 'wyr' ? WYR : NHIE;
+    const cur = pqCur(kind);
+    if (!cur) {
+      return (<>
+        <Text style={s.sm}>{kind === 'wyr' ? 'Dono ek hi sawal par apna jawab chunte hain. Dono ke chunne ke baad hi jawab dikhte hain.' : 'Ek baat padho. Dono chunte hain ki kiya hai ya nahi. Dono ke baad hi dikhta hai.'}</Text>
+        <Btn label="Shuru karo 🎲" onPress={() => pqNext(kind)} />
+      </>);
+    }
+    const opts = kind === 'wyr' ? list[cur.qi] : ['Haan, kiya hai 🙈', 'Kabhi nahi 😇'];
+    const picks = cur.picks || {};
+    const mine = picks[myUidX];
+    const theirs = picks[pal.uid];
+    const both = mine !== undefined && theirs !== undefined;
+    return (<>
+      <Text style={s.sm}>Sawal #{cur.n || 1}</Text>
+      {kind === 'wyr' ? <Text style={[s.q, { color: th.accent2 }]}>Kya pasand karoge?</Text> : <Text style={[s.q, { color: th.accent2 }]}>{list[cur.qi]}</Text>}
+      {opts.map((o, i) => <Btn key={i} label={(mine === i ? '✅ ' : '') + o} onPress={() => { if (mine === undefined) pqPick(kind, i); }} />)}
+      {both ? (<>
+        <View style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          <Text style={s.cardS}>Tum: {opts[mine]}</Text>
+          <Text style={s.cardS}>{palName}: {opts[theirs]}</Text>
+          <Text style={[s.cardT, { color: th.accent2, marginTop: 8 }]}>{mine === theirs ? 'Match! 💞 Dono ka jawab ek hi' : 'Alag alag 😄'}</Text>
+        </View>
+        <Btn label="Agla sawal ➡️" onPress={() => pqNext(kind)} />
+      </>) : mine !== undefined ? <Text style={s.sm}>⏳ {palName} ke jawab ka intezaar...</Text> : <Text style={s.sm}>Apna jawab chuno 👆</Text>}
+    </>);
+  };
+
+  const renderQuiz = () => {
+    const me = myUidX;
+    const other = pal.uid;
+    const scs = (quiz && quiz.scores) || {};
+    const scoreLine = <Text style={s.bt}>Tum: {scs[me] || 0}  |  {palName}: {scs[other] || 0}</Text>;
+    if (!quiz) {
+      return (<>
+        <Text style={s.sm}>Ek partner apne baare me sawal chunta hai aur jawab chhupa leta hai. Doosra guess karta hai. Sahi guess par +1 💘</Text>
+        <Btn label="Shuru karo 💘" onPress={() => quizStart(me)} />
+      </>);
+    }
+    const iAsk = quiz.asker === me;
+    let body = null;
+    if (quiz.stage === 'pick') {
+      body = iAsk ? (<>
+        <Text style={s.sm}>Apne baare me sawal chuno (badal bhi sakte ho) aur sachcha jawab likho. Partner ko jawab nahi dikhega.</Text>
+        <TextInput style={s.i2} multiline placeholder="Sawal" placeholderTextColor={PH} value={quizQ} onChangeText={setQuizQ} />
+        <Mini label="🎲 Doosra sawal" onPress={pickQuizQ} />
+        <TextInput style={s.i} placeholder="Tumhara jawab" placeholderTextColor={PH} value={quizIn} onChangeText={setQuizIn} />
+        <Btn label="Bhejo 🚀" onPress={quizSend} />
+      </>) : <Text style={s.sm}>⏳ {palName} sawal chun raha hai...</Text>;
+    } else if (quiz.stage === 'guess') {
+      body = (<>
+        <Text style={[s.q, { color: th.accent2 }]}>{quiz.q}</Text>
+        {iAsk ? <Text style={s.sm}>⏳ {palName} guess kar raha hai...</Text> : (<>
+          <Text style={s.sm}>{palName} ke baare me guess karo:</Text>
+          <TextInput style={s.i} placeholder="Tumhara guess" placeholderTextColor={PH} value={quizIn} onChangeText={setQuizIn} />
+          <Btn label="Guess bhejo 🎯" onPress={quizGuess} />
+        </>)}
+      </>);
+    } else if (quiz.stage === 'judge') {
+      body = (<>
+        <Text style={[s.q, { color: th.accent2 }]}>{quiz.q}</Text>
+        <View style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          {iAsk && <Text style={s.cardS}>Tumhara jawab: {quizPlain.a || '...'}</Text>}
+          <Text style={s.cardS}>{iAsk ? palName + ' ka guess' : 'Tumhara guess'}: {quizPlain.g || '...'}</Text>
+        </View>
+        {iAsk ? (<>
+          <Btn label="Sahi ✅ (+1)" onPress={() => quizJudge(true)} />
+          <Btn label="Galat ❌" onPress={() => quizJudge(false)} />
+        </>) : <Text style={s.sm}>⏳ {palName} check kar raha hai...</Text>}
+      </>);
+    } else {
+      body = (<>
+        <Text style={[s.q, { color: th.accent2 }]}>{quiz.q}</Text>
+        <View style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          <Text style={s.cardS}>Asli jawab: {quizPlain.a || '...'}</Text>
+          <Text style={s.cardS}>Guess: {quizPlain.g || '...'}</Text>
+          <Text style={[s.cardT, { color: th.accent2, marginTop: 8 }]}>{quiz.correct ? 'Sahi guess! ✅ +1' : 'Galat guess ❌'}</Text>
+        </View>
+        <Btn label="Agla round ➡️" onPress={() => quizStart(iAsk ? other : me)} />
+      </>);
+    }
+    return (<>{scoreLine}{body}<Mini label="🔄 Naya game (score zero)" onPress={quizReset} /></>);
+  };
+
+  const renderDaily = () => {
+    const qi = Math.floor(new Date(dayKey() + 'T00:00:00').getTime() / 86400000) % DAILY.length;
+    const doc = dailyDoc || {};
+    const mineAns = doc[myUidX];
+    const theirAns = doc[pal.uid];
+    const both = !!mineAns && !!theirAns;
+    const streak = streakBase + (both ? 1 : 0);
+    return (<>
+      <Text style={[s.q, { color: th.accent2 }]}>🔥 {streak} din ka streak</Text>
+      <View style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+        <Text style={s.cardS}>Aaj ka sawal</Text>
+        <Text style={[s.cardT, { color: th.accent2, marginTop: 6 }]}>{DAILY[qi]}</Text>
+      </View>
+      {!mineAns ? (<>
+        <TextInput style={s.i2} multiline placeholder="Tumhara jawab" placeholderTextColor={PH} value={dailyIn} onChangeText={setDailyIn} />
+        <Btn label="Jawab bhejo 💌" onPress={dailySend} />
+      </>) : !both ? <Text style={s.sm}>✅ Tumne jawab de diya. ⏳ {palName} ke jawab ke baad dono dikhenge.</Text> : (<>
+        <View style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          <Text style={s.cardS}>Tumhara jawab</Text>
+          <Text style={s.btext}>{dailyPlain[myUidX] || '...'}</Text>
+        </View>
+        <View style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          <Text style={s.cardS}>{palName} ka jawab</Text>
+          <Text style={s.btext}>{dailyPlain[pal.uid] || '...'}</Text>
+        </View>
+      </>)}
+      <Text style={s.sm}>Streak tab badhta hai jab dono roz jawab dete ho.</Text>
+    </>);
+  };
+
+  const renderMem = () => {
+    const md = memDoc || {};
+    const today = dayKey();
+    const start = md.start;
+    let together = null; let annLeft = null;
+    if (start) {
+      together = daysBetween(start, today);
+      const parts = start.split('-').map(Number);
+      const pad = (n) => String(n).padStart(2, '0');
+      const y = new Date().getFullYear();
+      let cand = y + '-' + pad(parts[1]) + '-' + pad(parts[2]);
+      if (cand < today) cand = (y + 1) + '-' + pad(parts[1]) + '-' + pad(parts[2]);
+      annLeft = daysBetween(today, cand);
+    }
+    const lab = (d) => { const n = daysBetween(today, d); return n === 0 ? 'Aaj 🎉' : n > 0 ? n + ' din baaki' : Math.abs(n) + ' din pehle'; };
+    return (<>
+      {start && !memEditing ? (<>
+        <Text style={[s.q, { color: th.accent2 }]}>💞 {together} din saath</Text>
+        <Text style={s.sm}>{annLeft === 0 ? '🎉 Aaj anniversary hai!' : '🎉 Anniversary me ' + annLeft + ' din baaki'}</Text>
+        <Mini label="Date badlo" onPress={() => { setMemStart(start); setMemEditing(true); }} />
+      </>) : (<>
+        <Text style={s.sm}>Rishta kab shuru hua? (ya koi khaas din)</Text>
+        {dateInput(memStart, setMemStart)}
+        <Btn label={t('save')} onPress={memSaveStart} />
+      </>)}
+      <Text style={[s.q, { color: th.accent2 }]}>Khaas din</Text>
+      {memPlain.length === 0 && <Text style={s.sm}>Abhi koi khaas din nahi. Neeche jodo (jaise pehli date, trip, birthday).</Text>}
+      {memPlain.map((e) => (
+        <View key={e.id} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          <Text style={[s.cardT, { color: th.accent2 }]}>{e.title}</Text>
+          <Text style={s.cardS}>{e.date}  •  {lab(e.date)}</Text>
+          <View style={s.miniRow}><Mini label="✕ Hatao" onPress={() => memDelEvent(e.id)} /></View>
+        </View>
+      ))}
+      <TextInput style={s.i} placeholder="Din ka naam" placeholderTextColor={PH} value={evTitle} onChangeText={setEvTitle} />
+      {dateInput(evDate, setEvDate)}
+      <Btn label="➕ Jodo" onPress={memAddEvent} />
+    </>);
+  };
+
+  const noteWhenOpts = [['now', 'Abhi'], ['1h', '1 ghante baad'], ['pm9', 'Aaj raat 9 baje'], ['am8', 'Kal subah 8 baje']];
+  const renderNotes = () => (<>
+    <Text style={s.sm}>Ek love note likho. Partner use tabhi khol payega jab tum chaho 💌</Text>
+    <TextInput style={s.i2} multiline placeholder="Tumhara note" placeholderTextColor={PH} value={noteText} onChangeText={setNoteText} />
+    <Text style={s.sm}>Kab khule?</Text>
+    <View style={s.miniRow}>
+      {noteWhenOpts.map((o) => <Mini key={o[0]} label={(noteWhen === o[0] ? '✅ ' : '') + o[1]} onPress={() => setNoteWhen(o[0])} />)}
+    </View>
+    <Btn label="Note bhejo 💌" onPress={noteSend} />
+    <Text style={[s.q, { color: th.accent2 }]}>Notes</Text>
+    {notesPlain.length === 0 && <Text style={s.sm}>Abhi koi note nahi.</Text>}
+    {notesPlain.map((n) => {
+      const mine = n.from === myUidX;
+      const locked = !mine && n.unlock > Date.now();
+      return (
+        <View key={n.key} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+          <Text style={s.cardS}>{mine ? 'Tumne ' + palName + ' ko bheja' : palName + ' ne bheja'}</Text>
+          {locked ? <Text style={[s.cardT, { color: th.accent2 }]}>🔒 Khulega: {new Date(n.unlock).toLocaleString()}</Text> : <Text style={s.btext}>{n.text}</Text>}
+          {mine && n.unlock > Date.now() && <Text style={s.cardS}>Unke liye khulega: {new Date(n.unlock).toLocaleString()}</Text>}
+        </View>
+      );
+    })}
+  </>);
+
+  const renderAlbum = () => (<>
+    <Btn label={albumBusy ? 'Ruko...' : '📸 Photo jodo'} onPress={albumAdd} />
+    <Mini label="🔄 Refresh" onPress={albumLoad} />
+    {albumItems.length === 0 && <Text style={s.sm}>Abhi koi photo nahi. Pehli photo tum jodo 💞</Text>}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
+      {albumItems.map((p) => (
+        <View key={p.id} style={{ margin: 6, alignItems: 'center' }}>
+          <RNImage source={{ uri: p.data }} style={{ width: 150, height: 150, borderRadius: 12 }} resizeMode="cover" />
+          {p.from === myUidX && <Mini label="🗑️" onPress={() => albumDelete(p.id)} />}
+        </View>
+      ))}
+    </View>
+  </>);
 
   return (
     <View style={[s.c, { backgroundColor: th.bg }, full ? s.cTop : null]}>
@@ -1814,445 +2502,4 @@ export default function App() {
             <TextInput style={s.i} placeholder="Password" placeholderTextColor={PH} secureTextEntry autoCapitalize="none" value={password} onChangeText={setPassword} />
             <Btn label={authLoading ? 'Ruko...' : authMode === 'login' ? 'Login' : 'Account banao'} onPress={submitAuth} />
             <Nav label={authMode === 'login' ? 'Naya account banao' : 'Pehle se account hai? Login'} onPress={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setError(''); }} />
-            {authMode === 'login' && <Nav label="Password bhool gaye?" onPress={forgotPassword} />}
-          </>)}
-          {!!error && <Text style={[s.sm, { color: '#ff6b6b' }]}>{error}</Text>}
-          {!!notice && <Text style={[s.sm, { color: th.accent2 }]}>{notice}</Text>}
-        </View>
-      ) : needUsername ? (
-        <View style={s.authBox}>
-          <Text style={[s.welcome, { color: th.accent2 }]}>Nexdare</Text>
-          <Text style={[s.q, { color: th.accent2 }]}>Username chuno</Text>
-          <TextInput style={s.i} placeholder="Username" placeholderTextColor={PH} autoCapitalize="none" value={usernameInput} onChangeText={setUsernameInput} />
-          <Btn label={authLoading ? 'Ruko...' : t('save')} onPress={claimUsername} />
-          <Nav label={t('logout')} onPress={logout} />
-          {!!error && <Text style={[s.sm, { color: '#ff6b6b' }]}>{error}</Text>}
-        </View>
-      ) : (<>
-        {!!title && !full && <Text style={screen === 'home' ? s.tStyled : s.t}>{title}</Text>}
-
-        {screen === 'home' && page === 1 && (<>
-          <Text style={[s.welcome, { color: th.accent2 }]}>{t('welcome')}</Text>
-          <View style={[s.rule, { backgroundColor: th.accent }]} />
-          <Text style={[s.logo, { color: th.accent2, textShadowColor: th.accent }]}>Nexdare</Text>
-          <Btn big label={t('start')} onPress={() => setPage(2)} />
-          {dots(1)}
-        </>)}
-
-        {screen === 'home' && page === 2 && (<>
-          <View style={s.sideRow}>
-            <TouchableOpacity style={[s.b, s.bHalf, { backgroundColor: th.accent, shadowColor: th.accent }]} onPress={() => { playSound('click', soundOn); createRoom(); }}>
-              <Text style={[s.bt, { textAlign: 'center' }]}>{t('createRoom')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.b, s.bHalf, { backgroundColor: th.accent, shadowColor: th.accent }]} onPress={() => { playSound('click', soundOn); setError(''); setScreen('join'); }}>
-              <Text style={[s.bt, { textAlign: 'center' }]}>{t('joinRoom')}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={s.sideRow}>
-            <View style={{ marginHorizontal: 14 }}><Nav label={t('back')} onPress={() => setPage(1)} /></View>
-            <View style={{ marginHorizontal: 14 }}><Nav label={t('next')} onPress={() => setPage(3)} /></View>
-          </View>
-          {dots(2)}
-        </>)}
-
-        {screen === 'home' && page === 3 && (<>
-          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
-          <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
-          <Btn label="🎨 Nexstyle ♡" onPress={() => setScreen('style')} />
-          <Btn label={t('profile')} onPress={() => setScreen('profile')} />
-          <Btn label={t('settings')} onPress={() => setScreen('settings')} />
-          <Nav label={t('back')} onPress={() => setPage(2)} />
-          {dots(3)}
-        </>)}
-
-        {screen === 'join' && (<>
-          <TextInput style={s.i} placeholder="Room code" placeholderTextColor={PH} keyboardType="number-pad" value={joinCode} onChangeText={setJoinCode} />
-          <Btn label={t('join')} onPress={joinRoom} />
-          <Nav label={t('back')} onPress={leave} />
-        </>)}
-
-        {screen === 'room' && renderRoom()}
-
-        {screen === 'chat' && !chatCode && (subtle ? (<>
-          <Btn label={t('newChat')} onPress={createChat} />
-          <TextInput style={s.i} placeholder={t('chatCode')} placeholderTextColor={PH} autoCapitalize="none" value={chatJoin} onChangeText={setChatJoin} />
-          <Btn label={t('joinChat')} onPress={joinChat} />
-          <Nav label={t('back')} onPress={backToTools} />
-        </>) : (<>
-          <Text style={s.sm}>{t('needBrowserChat')}</Text>
-          <Nav label={t('back')} onPress={backToTools} />
-        </>))}
-
-        {inChat && (chatFull ? (<>
-          <Text style={s.sm}>{t('chatFull')}</Text>
-          <Nav label={t('back')} onPress={leaveChat} />
-        </>) : chatData && chatData.gone ? (<>
-          <Text style={s.sm}>{t('chatDeleted')}</Text>
-          <Nav label={t('back')} onPress={leaveChat} />
-        </>) : (<>
-          <Text style={[s.code2, { color: th.accent2 }]}>{shared ? '💞 ' + partnerName : chatCode}</Text>
-          <Text style={s.sm}>{shared ? t('e2e') + shared.safety : t('waitPartner') + ': ' + chatCode}</Text>
-          <View style={s.miniRow}>
-            <Mini label={t('saveChat')} onPress={saveChat} />
-            <Mini label={confirmDel ? t('confirmDelete') : t('deleteChat')} onPress={deleteChat} />
-          </View>
-          <ScrollView ref={scrollRef} style={s.msgBox} onContentSizeChange={() => scrollRef.current && scrollRef.current.scrollToEnd({ animated: true })}>
-            {visible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
-            {visible.map((m) => {
-              const mine = myId && m.sid === myId;
-              const sel = selMsg && selMsg.key === m.key;
-              return (
-                <TouchableOpacity key={m.key} onPress={() => setSelMsg(sel ? null : m)}
-                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
-                  <Text style={s.bname}>{mine ? t('you') : partnerName}</Text>
-                  <Text style={s.btext}>{m.text}</Text>
-                  {m.edited && <Text style={s.tick}>edited</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {!!selMsg && (
-            <View style={s.miniRow}>
-              {selMsg.sid === myId && <Mini label="✏️ Edit" onPress={() => { setMsgText(selMsg.text); setSelMsg({ ...selMsg, editMode: true }); }} />}
-              <Mini label={t('deleteForMe')} onPress={deleteForMe} />
-              {selMsg.sid === myId && <Mini label={t('deleteForAll')} onPress={deleteForAll} />}
-              <Mini label={t('cancel')} onPress={() => { setSelMsg(null); setMsgText(''); }} />
-            </View>
-          )}
-          <View style={s.sendRow}>
-            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={msgText} onChangeText={setMsgText} onSubmitEditing={() => (selMsg && selMsg.editMode ? editMsg() : sendMsg())} />
-            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={() => (selMsg && selMsg.editMode ? editMsg() : sendMsg())}>
-              <Text style={s.bt}>{selMsg && selMsg.editMode ? '✓' : '➤'}</Text>
-            </TouchableOpacity>
-          </View>
-          <Nav label={t('leaveChat')} onPress={leaveChat} />
-        </>))}
-
-        {screen === 'profile' && (
-          <ScrollView contentContainerStyle={sc}>
-            <Pic uri={myPhoto} emoji={profile.avatar} size={90} />
-            <Mini label={myPhoto ? '📷 Photo badlo' : '📷 Apni photo lagao'} onPress={() => pickPhoto('me')} />
-            {currentUser && <Text style={s.sm}>@{currentUser.username} • {currentUser.email}</Text>}
-            <TextInput style={s.i} placeholder={t('name')} placeholderTextColor={PH} value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} />
-            <TextInput style={s.i2} placeholder={t('bio')} placeholderTextColor={PH} value={profile.bio} onChangeText={(v) => setProfile({ ...profile, bio: v })} multiline />
-            <TextInput style={s.i} placeholder={t('avatar')} placeholderTextColor={PH} value={profile.avatar} onChangeText={(v) => setProfile({ ...profile, avatar: v })} maxLength={2} />
-            <Btn label={t('save')} onPress={() => { saveProfile(profile); setNotice('Profile saved!'); }} />
-            <Nav label={t('back')} onPress={() => setScreen('home')} />
-          </ScrollView>
-        )}
-
-        {screen === 'style' && (
-          <ScrollView contentContainerStyle={sc}>
-            <Text style={s.sm}>Theme chuno, har jagah badal jayegi 💞</Text>
-            <View style={s.miniRow}>
-              {Object.keys(skins).map((k) => <Mini key={k} label={(skin === k ? '✅ ' : '') + skins[k].name} onPress={() => { setSkin(k); localStorage.setItem('nexdare_skin', k); }} />)}
-              <Mini label="Auto" onPress={() => { setSkin(''); localStorage.removeItem('nexdare_skin'); }} />
-            </View>
-            <Text style={s.sm}>Apni photo (profile aur chats me dikhegi)</Text>
-            <Pic uri={myPhoto} emoji={profile.avatar} size={70} />
-            <Mini label="📷 Apni photo lagao" onPress={() => pickPhoto('me')} />
-            <Text style={s.sm}>Background photo (poori app me)</Text>
-            <View style={s.miniRow}>
-              <Mini label="🖼️ Background lagao" onPress={() => pickPhoto('bg')} />
-              {!!bgPhoto && <Mini label="Hatao" onPress={() => { setBgPhoto(''); localStorage.removeItem('nexdare_bgphoto'); }} />}
-            </View>
-            <Nav label={t('back')} onPress={() => setScreen('home')} />
-          </ScrollView>
-        )}
-
-        {screen === 'friends' && (
-          <ScrollView contentContainerStyle={sc}>
-            <Text style={s.sm}>Tumhara username</Text>
-            <Text style={[s.code2, { color: th.accent2 }]}>@{currentUser ? currentUser.username : ''}</Text>
-            <Mini label="📋 Copy" onPress={() => copyText('@' + (currentUser ? currentUser.username : ''))} />
-            {!!pubError && <Text style={[s.sm, { color: '#ff6b6b' }]}>{pubError}</Text>}
-            <TextInput style={s.i} placeholder="Friend ka username" placeholderTextColor={PH} autoCapitalize="none" value={reqName} onChangeText={setReqName} />
-            <Btn label="Request bhejo 📩" onPress={sendFriendRequest} />
-            {Object.keys(friendReqs).length > 0 && (<>
-              <Text style={[s.q, { color: th.accent2 }]}>Requests</Text>
-              {Object.keys(friendReqs).map((k) => {
-                const r = friendReqs[k];
-                return (
-                  <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
-                    <Text style={[s.cardT, { color: th.accent2 }]}>{(r.avatar || '😎') + ' ' + (r.name || r.username)}</Text>
-                    <Text style={s.cardS}>@{r.username}</Text>
-                    <View style={s.miniRow}>
-                      <Mini label="Accept ✅" onPress={() => acceptRequest(r)} />
-                      <Mini label="Reject" onPress={() => declineRequest(r)} />
-                    </View>
-                  </View>
-                );
-              })}
-            </>)}
-            <Text style={[s.q, { color: th.accent2 }]}>{t('friends')}</Text>
-            {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : (
-              <View style={{ width: '100%' }}>
-                {Object.keys(cloudFriends).map((k) => cloudFriends[k])
-                  .sort((a, b) => ((previews[b.chatId] && previews[b.chatId].t) || 0) - ((previews[a.chatId] && previews[a.chatId].t) || 0))
-                  .map((f) => {
-                    const pv = previews[f.chatId];
-                    const un = unread[f.chatId] || 0;
-                    return (
-                      <View key={f.uid}>
-                        {chatRow({
-                          rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username,
-                          sub: pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
-                          time: pv ? fmtListTime(pv.t) : '', badge: un,
-                          onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
-                        })}
-                        {friendMenu === f.uid && (
-                          <View style={s.miniRow}>
-                            <Mini label={t('remove')} onPress={() => { setFriendMenu(null); removeCloudFriend(f); }} />
-                            <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-              </View>
-            )}
-            <Nav label={t('back')} onPress={() => setScreen('home')} />
-          </ScrollView>
-        )}
-
-        {screen === 'groups' && !grp && (subtle ? (
-          <ScrollView contentContainerStyle={sc}>
-            <Text style={[s.q, { color: th.accent2 }]}>Group Chat 👥</Text>
-            <TextInput style={s.i} placeholder="Naye group ka naam" placeholderTextColor={PH} value={grpNewName} onChangeText={setGrpNewName} />
-            <Btn label="➕ Group banao" onPress={createGroup} />
-            <TextInput style={s.i} placeholder="Group code" placeholderTextColor={PH} autoCapitalize="none" value={grpJoinCode} onChangeText={setGrpJoinCode} />
-            <Btn label="🔑 Group join karo" onPress={joinGroup} />
-            <Text style={[s.q, { color: th.accent2 }]}>Mere groups</Text>
-            {Object.keys(groupList).length === 0 ? <Text style={s.sm}>Abhi koi group nahi. Naya banao ya code se join karo.</Text> : (
-              <View style={{ width: '100%' }}>
-                {Object.keys(groupList).map((k) => ({ ...groupList[k], gid: k })).sort((a, b) => (b.t || 0) - (a.t || 0)).map((g) => (
-                  <View key={g.gid}>
-                    {chatRow({
-                      rowKey: g.gid, emoji: '👥', title: g.name, sub: 'Tap karke chat kholo',
-                      onPress: () => openGroup(g), onMore: () => setFriendMenu(friendMenu === g.gid ? null : g.gid),
-                    })}
-                    {friendMenu === g.gid && (
-                      <View style={s.miniRow}>
-                        <Mini label="🚪 Group chhodo" onPress={() => { setFriendMenu(null); removeGroupFromList(g); }} />
-                        <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
-                      </View>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
-            <Nav label={t('back')} onPress={backToTools} />
-          </ScrollView>
-        ) : (<>
-          <Text style={s.sm}>{t('needBrowserChat')}</Text>
-          <Nav label={t('back')} onPress={backToTools} />
-        </>))}
-
-        {screen === 'groups' && !!grp && (grpMeta === null ? (<>
-          <Text style={s.sm}>Ye group delete ho chuka hai.</Text>
-          <Nav label={t('back')} onPress={closeGroup} />
-        </>) : (<>
-          <View style={s.dmHead}>
-            <View style={s.avWrap}><Text style={{ fontSize: 26 }}>👥</Text></View>
-            <TouchableOpacity style={{ flex: 1, marginLeft: 10 }} onPress={() => { setGrpInfo(!grpInfo); setGrpConfirm(''); }}>
-              <Text numberOfLines={1} style={[s.code2, { color: th.accent2, marginBottom: 0, fontSize: 20 }]}>{grp.name}</Text>
-              <Text style={s.cardS}>{Object.keys(grpMembers).length} members • info ke liye tap karo</Text>
-            </TouchableOpacity>
-          </View>
-          {grpInfo && (
-            <View style={[s.card, { borderColor: th.accent + '55', width: '92%' }]}>
-              <Text style={s.cardS}>Group code (dost isse join karenge):</Text>
-              <Text style={[s.code2, { color: th.accent2 }]}>{grp.code}</Text>
-              <View style={s.miniRow}>
-                <Mini label="📋 Code copy" onPress={() => copyText(grp.code)} />
-                <Mini label="📤 Share" onPress={shareGroupCode} />
-              </View>
-              <Text style={[s.cardT, { color: th.accent2 }]}>Members</Text>
-              {Object.keys(grpMembers).map((uid) => (
-                <Text key={uid} style={s.cardS}>{(grpMembers[uid].avatar || '😎') + ' ' + grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '')}</Text>
-              ))}
-              <View style={s.miniRow}>
-                <Mini label={grpConfirm === 'leave' ? 'Pakka chhodna hai?' : '🚪 Group chhodo'} onPress={leaveGroupForever} />
-                {!!grpMeta && grpMeta.owner === myUid && <Mini label={grpConfirm === 'del' ? 'Pakka delete?' : '🗑️ Group delete'} onPress={deleteGroupForAll} />}
-              </View>
-            </View>
-          )}
-          <Text style={s.sm}>🔒 End-to-end encrypted • sirf code wale padh sakte hain</Text>
-          <ScrollView ref={grpScrollRef} style={s.msgBox} onContentSizeChange={() => grpScrollRef.current && grpScrollRef.current.scrollToEnd({ animated: true })}>
-            {grpVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
-            {grpVisible.map((m) => {
-              const mine = myUid && m.from === myUid;
-              const sel = grpSel && grpSel.key === m.key;
-              return (
-                <TouchableOpacity key={m.key} onPress={() => setGrpSel(sel ? null : m)}
-                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
-                  <Text style={s.bname}>{mine ? t('you') : m.name}</Text>
-                  <Text style={s.btext}>{m.text}</Text>
-                  <Text style={s.tick}>{m.edited ? 'edited  ' : ''}{fmtListTime(m.t)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {!!grpSel && (
-            <View style={s.miniRow}>
-              {grpSel.from === myUid && <Mini label="✏️ Edit" onPress={grpStartEdit} />}
-              <Mini label={t('deleteForMe')} onPress={grpDeleteForMe} />
-              {grpSel.from === myUid && <Mini label={t('deleteForAll')} onPress={grpDeleteForAll} />}
-              <Mini label={t('cancel')} onPress={() => setGrpSel(null)} />
-            </View>
-          )}
-          {!!grpEditing && <Text style={s.sm}>✏️ Message edit ho raha hai <Text onPress={() => { setGrpEditing(null); setGrpText(''); }}> (cancel)</Text></Text>}
-          <View style={s.sendRow}>
-            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={grpText} onChangeText={setGrpText} onSubmitEditing={sendGrp} />
-            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendGrp}><Text style={s.bt}>{grpEditing ? '✓' : '➤'}</Text></TouchableOpacity>
-          </View>
-          <Nav label={t('back')} onPress={closeGroup} />
-        </>))}
-
-        {screen === 'dm' && dmFriend && (subtle ? (<>
-          <View style={s.dmHead}>
-            <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} />
-            <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0, flex: 1 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
-            {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
-          </View>
-          <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar Message screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
-          <ScrollView ref={dmScrollRef} style={s.msgBox} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
-            {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
-            {dmVisible.map((m) => {
-              const mine = myUid && m.from === myUid;
-              const sel = dmSel && dmSel.key === m.key;
-              const data = m.file ? dmImgs[m.file.id] : null;
-              return (
-                <TouchableOpacity key={m.key} onPress={() => setDmSel(sel ? null : m)}
-                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
-                  <Text style={s.bname}>{mine ? t('you') : (dmFriend.name || dmFriend.username)}</Text>
-                  {isImg(m.file) && (data && data !== 'ERR' ? <RNImage source={{ uri: data }} style={s.dmPic} resizeMode="cover" /> : <Text style={s.btext}>{data === 'ERR' ? '🖼️ Photo khul nahi payi' : '🖼️ Photo load ho rahi hai...'}</Text>)}
-                  {isAud(m.file) && (data && data !== 'ERR' && Platform.OS === 'web' ? React.createElement('audio', { src: data, controls: true, style: { width: 210 } }) : <Text style={s.btext}>🎤 Voice note load ho raha hai...</Text>)}
-                  {!!m.file && !isImg(m.file) && !isAud(m.file) && <Text style={s.btext}>📎 {m.file.name} ({fmtSize(m.file.size)})</Text>}
-                  {!!m.file && !isAud(m.file) && (
-                    <TouchableOpacity onPress={() => downloadDmFile(m.file)}><Text style={[s.bname, { textDecorationLine: 'underline' }]}>⬇️ Download</Text></TouchableOpacity>
-                  )}
-                  {!!m.text && <Text style={s.btext}>{m.text}</Text>}
-                  <Text style={s.tick}>{m.edited ? 'edited  ' : ''}{mine ? (friendSeen >= m.t ? '✓✓ Seen' : '✓ Sent') : ''}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {!!dmSel && (
-            <View style={s.miniRow}>
-              {dmSel.from === myUid && !dmSel.file && <Mini label="✏️ Edit" onPress={startEdit} />}
-              <Mini label={t('deleteForMe')} onPress={dmDeleteForMe} />
-              {dmSel.from === myUid && <Mini label={t('deleteForAll')} onPress={dmDeleteForAll} />}
-              <Mini label={t('cancel')} onPress={() => setDmSel(null)} />
-            </View>
-          )}
-          {editing && <Text style={s.sm}>✏️ Message edit ho raha hai <Text onPress={() => { setEditing(null); setDmText(''); }}> (cancel)</Text></Text>}
-          {dmBusy && <Text style={s.sm}>⏳ Bhej raha hoon...</Text>}
-          {recording && <Text style={s.sm}>🔴 Record ho raha hai... ruk-ne ke liye ⏹ dabao</Text>}
-          <View style={s.sendRow}>
-            <TouchableOpacity style={s.attachBtn} onPress={pickDmFile}><Text style={s.bt}>📎</Text></TouchableOpacity>
-            <TouchableOpacity style={s.attachBtn} onPress={recording ? stopRec : startRec}><Text style={s.bt}>{recording ? '⏹' : '🎤'}</Text></TouchableOpacity>
-            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={dmText} onChangeText={setDmText} onSubmitEditing={sendDm} />
-            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendDm}><Text style={s.bt}>{editing ? '✓' : '➤'}</Text></TouchableOpacity>
-          </View>
-          <Nav label={t('back')} onPress={leaveDm} />
-        </>) : (<>
-          <Text style={s.sm}>{t('needBrowserChat')}</Text>
-          <Nav label={t('back')} onPress={leaveDm} />
-        </>))}
-
-        {screen === 'settings' && (
-          <ScrollView contentContainerStyle={sc}>
-            <View style={s.setRow}>
-              <Text style={[s.sm, { marginRight: 12 }]}>{t('sound')}</Text>
-              <Switch value={soundOn} onValueChange={(v) => { setSoundOn(v); localStorage.setItem('nexdare_sound', v ? '1' : '0'); }} />
-            </View>
-            <View style={s.setRow}>
-              <Text style={[s.sm, { marginRight: 12 }]}>{t('notifications')}</Text>
-              <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} />
-            </View>
-            <Text style={s.sm}>🌐 Language</Text>
-            <View style={s.miniRow}>
-              {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => changeLang(l[0])} />)}
-            </View>
-            <Btn label={t('logout')} onPress={logout} />
-            {!showClearConfirm ? <Btn label={t('clearData')} onPress={() => setShowClearConfirm(true)} /> : (<>
-              <Text style={s.sm}>{t('clearConfirm')}</Text>
-              <Btn label={t('yesClear')} onPress={clearAllData} />
-              <Nav label={t('cancel')} onPress={() => setShowClearConfirm(false)} />
-            </>)}
-            <Nav label={t('back')} onPress={() => setScreen('home')} />
-          </ScrollView>
-        )}
-
-        {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 10 }]}>{error}</Text>}
-        {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 8 }]}>{notice}</Text>}
-      </>)}
-    </View>
-  );
-}
-
-const s = StyleSheet.create({
-  c: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  cTop: { justifyContent: 'flex-start', paddingTop: 50 },
-  bgImg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.22 },
-  authBox: { width: '100%', alignItems: 'center', paddingHorizontal: 24, zIndex: 10 },
-  glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, opacity: 0.25 },
-  glow2: { position: 'absolute', width: 320, height: 320, borderRadius: 160, opacity: 0.2 },
-  floatWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  floaty: { position: 'absolute', opacity: 0.35 },
-  welcome: { fontSize: 18, letterSpacing: 6, fontWeight: '600', marginBottom: 8 },
-  rule: { width: 60, height: 3, borderRadius: 2, marginBottom: 12 },
-  logo: { fontSize: 42, fontWeight: '800', marginBottom: 30, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18 },
-  t: { fontSize: 26, fontWeight: '700', color: '#fff', marginBottom: 16, textAlign: 'center' },
-  tStyled: { fontSize: 22, fontWeight: '600', color: '#fff', marginBottom: 20, textAlign: 'center', opacity: 0.9 },
-  bt: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  btBig: { fontSize: 20 },
-  b: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 30, marginVertical: 8, minWidth: 220, alignItems: 'center', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
-  bBig: { paddingVertical: 18, minWidth: 240 },
-  bHalf: { minWidth: 0, width: 150, paddingHorizontal: 10, marginHorizontal: 8 },
-  sideRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  setRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
-  nav: { borderWidth: 1.5, borderRadius: 24, paddingVertical: 10, paddingHorizontal: 22, marginVertical: 6 },
-  navt: { fontSize: 15, fontWeight: '600' },
-  mini: { borderWidth: 1, borderRadius: 18, paddingVertical: 7, paddingHorizontal: 14, marginHorizontal: 4, marginVertical: 3 },
-  miniT: { fontSize: 13, fontWeight: '600' },
-  miniRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginVertical: 8 },
-  dotRow: { flexDirection: 'row', marginTop: 28 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ffffff44', marginHorizontal: 4 },
-  code: { fontSize: 42, fontWeight: '800', letterSpacing: 8, marginVertical: 12 },
-  code2: { fontSize: 22, fontWeight: '700', letterSpacing: 2, marginBottom: 6 },
-  sm: { color: '#ffffffbb', fontSize: 14, textAlign: 'center', marginVertical: 6, paddingHorizontal: 10 },
-  i: { backgroundColor: '#ffffff18', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 18, color: '#fff', fontSize: 16, width: '85%', marginVertical: 8, textAlign: 'center' },
-  i2: { backgroundColor: '#ffffff18', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 18, color: '#fff', fontSize: 15, width: '90%', marginVertical: 8, minHeight: 80, textAlignVertical: 'top' },
-  q: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginVertical: 10, paddingHorizontal: 12 },
-  gameScroll: { width: '100%', maxHeight: '80%' },
-  gameInner: { alignItems: 'center', paddingBottom: 30 },
-  replyBox: { backgroundColor: '#ffffff15', borderRadius: 16, padding: 14, marginVertical: 10, width: '90%' },
-  bname: { color: '#ffffff99', fontSize: 12, marginBottom: 4 },
-  btext: { color: '#fff', fontSize: 15, lineHeight: 22 },
-  tick: { color: '#ffffffaa', fontSize: 11, textAlign: 'right', marginTop: 3 },
-  pic: { width: '100%', height: 180, borderRadius: 12, marginTop: 8 },
-  picSmall: { width: 120, height: 120, borderRadius: 12, marginVertical: 8 },
-  msgBox: { width: '100%', maxHeight: 340, marginVertical: 8 },
-  bubble: { maxWidth: '80%', padding: 12, borderRadius: 16, marginVertical: 4, marginHorizontal: 8 },
-  mine: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  theirs: { alignSelf: 'flex-start', backgroundColor: '#ffffff18', borderBottomLeftRadius: 4 },
-  selBubble: { borderWidth: 2, borderColor: '#fff' },
-  dmHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, width: '100%', paddingHorizontal: 12 },
-  sendRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 8 },
-  msgInput: { flex: 1, backgroundColor: '#ffffff18', borderRadius: 22, paddingVertical: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, marginRight: 8 },
-  attachBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff18', marginRight: 6 },
-  dmPic: { width: 220, height: 220, borderRadius: 12, marginBottom: 6 },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: '#ffffff12', borderRadius: 14, padding: 14, marginVertical: 6, borderWidth: 1 },
-  cardT: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
-  badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  chatRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
-  avWrap: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#ffffff1f', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  rowTitle: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700' },
-  rowTime: { color: '#ffffff99', fontSize: 12, marginLeft: 8 },
-  rowSub: { flex: 1, color: '#ffffffaa', fontSize: 14 },
-});
+            {authMode === 'login' && <Nav label="Password bhool gaye?" onPr
