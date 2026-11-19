@@ -2502,4 +2502,555 @@ export default function App() {
             <TextInput style={s.i} placeholder="Password" placeholderTextColor={PH} secureTextEntry autoCapitalize="none" value={password} onChangeText={setPassword} />
             <Btn label={authLoading ? 'Ruko...' : authMode === 'login' ? 'Login' : 'Account banao'} onPress={submitAuth} />
             <Nav label={authMode === 'login' ? 'Naya account banao' : 'Pehle se account hai? Login'} onPress={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setError(''); }} />
-            {authMode === 'login' && <Nav label="Password bhool gaye?" onPr
+            {authMode === 'login' && <Nav label="Password bhool gaye?" onPress={forgotPassword} />}
+          </>)}
+          {!!error && <Text style={[s.sm, { color: '#ff6b6b' }]}>{error}</Text>}
+          {!!notice && <Text style={[s.sm, { color: th.accent2 }]}>{notice}</Text>}
+        </View>
+      ) : needUsername ? (
+        <View style={s.authBox}>
+          <Text style={[s.welcome, { color: th.accent2 }]}>Nexdare</Text>
+          <Text style={[s.q, { color: th.accent2 }]}>Username chuno</Text>
+          <TextInput style={s.i} placeholder="Username" placeholderTextColor={PH} autoCapitalize="none" value={usernameInput} onChangeText={setUsernameInput} />
+          <Btn label={authLoading ? 'Ruko...' : t('save')} onPress={claimUsername} />
+          <Nav label={t('logout')} onPress={logout} />
+          {!!error && <Text style={[s.sm, { color: '#ff6b6b' }]}>{error}</Text>}
+        </View>
+      ) : (<>
+        {!!title && !full && <Text style={screen === 'home' ? s.tStyled : s.t}>{title}</Text>}
+
+        {screen === 'home' && page === 1 && (<>
+          <Text style={[s.welcome, { color: th.accent2 }]}>{t('welcome')}</Text>
+          <View style={[s.rule, { backgroundColor: th.accent }]} />
+          <Text style={[s.logo, { color: th.accent2, textShadowColor: th.accent }]}>Nexdare</Text>
+          <Btn big label={t('start')} onPress={() => setPage(2)} />
+          {dots(1)}
+        </>)}
+
+        {screen === 'home' && page === 2 && (<>
+          <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />
+          <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />
+          <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
+          <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
+          <View style={s.sideRow}>
+            <View style={{ marginHorizontal: 14 }}><Nav label={t('back')} onPress={() => setPage(1)} /></View>
+            <View style={{ marginHorizontal: 14 }}><Nav label={t('next')} onPress={() => setPage(3)} /></View>
+          </View>
+          {dots(2)}
+        </>)}
+
+        {screen === 'tdhub' && (<>
+          <Text style={s.sm}>Dono players ko ek room code se jodo. Coin flip se shuru hota hai.</Text>
+          <View style={s.sideRow}>
+            <TouchableOpacity style={[s.b, s.bHalf, { backgroundColor: th.accent, shadowColor: th.accent }]} onPress={() => { playSound('click', soundOn); createRoom(); }}>
+              <Text style={[s.bt, { textAlign: 'center' }]}>{t('createRoom')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.b, s.bHalf, { backgroundColor: th.accent, shadowColor: th.accent }]} onPress={() => { playSound('click', soundOn); setError(''); setScreen('join'); }}>
+              <Text style={[s.bt, { textAlign: 'center' }]}>{t('joinRoom')}</Text>
+            </TouchableOpacity>
+          </View>
+          <Nav label={t('back')} onPress={backToGames} />
+        </>)}
+
+        {screen === 'home' && page === 3 && (<>
+          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
+          <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
+          <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />
+          <Btn label="🎨 Nexstyle ♡" onPress={() => setScreen('style')} />
+          <Btn label={t('profile')} onPress={() => setScreen('profile')} />
+          <Btn label={t('settings')} onPress={() => setScreen('settings')} />
+          <Nav label={t('back')} onPress={() => setPage(2)} />
+          {dots(3)}
+        </>)}
+
+        {screen === 'join' && (<>
+          <TextInput style={s.i} placeholder="Room code" placeholderTextColor={PH} keyboardType="number-pad" value={joinCode} onChangeText={setJoinCode} />
+          <Btn label={t('join')} onPress={joinRoom} />
+          <Nav label={t('back')} onPress={leave} />
+        </>)}
+
+        {screen === 'room' && renderRoom()}
+
+        {screen === 'chat' && !chatCode && (subtle ? (<>
+          <Btn label={t('newChat')} onPress={createChat} />
+          <TextInput style={s.i} placeholder={t('chatCode')} placeholderTextColor={PH} autoCapitalize="none" value={chatJoin} onChangeText={setChatJoin} />
+          <Btn label={t('joinChat')} onPress={joinChat} />
+          <Nav label={t('back')} onPress={backToTools} />
+        </>) : (<>
+          <Text style={s.sm}>{t('needBrowserChat')}</Text>
+          <Nav label={t('back')} onPress={backToTools} />
+        </>))}
+
+        {inChat && (chatFull ? (<>
+          <Text style={s.sm}>{t('chatFull')}</Text>
+          <Nav label={t('back')} onPress={leaveChat} />
+        </>) : chatData && chatData.gone ? (<>
+          <Text style={s.sm}>{t('chatDeleted')}</Text>
+          <Nav label={t('back')} onPress={leaveChat} />
+        </>) : (<>
+          <Text style={[s.code2, { color: th.accent2 }]}>{shared ? '💞 ' + partnerName : chatCode}</Text>
+          <Text style={s.sm}>{shared ? t('e2e') + shared.safety : t('waitPartner') + ': ' + chatCode}</Text>
+          <View style={s.miniRow}>
+            <Mini label={t('saveChat')} onPress={saveChat} />
+            <Mini label={confirmDel ? t('confirmDelete') : t('deleteChat')} onPress={deleteChat} />
+          </View>
+          <ScrollView ref={scrollRef} style={s.msgBox} onContentSizeChange={() => scrollRef.current && scrollRef.current.scrollToEnd({ animated: true })}>
+            {visible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
+            {visible.map((m) => {
+              const mine = myId && m.sid === myId;
+              const sel = selMsg && selMsg.key === m.key;
+              return (
+                <TouchableOpacity key={m.key} onPress={() => setSelMsg(sel ? null : m)}
+                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
+                  <Text style={s.bname}>{mine ? t('you') : partnerName}</Text>
+                  <Text style={s.btext}>{m.text}</Text>
+                  {m.edited && <Text style={s.tick}>edited</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {!!selMsg && (
+            <View style={s.miniRow}>
+              {selMsg.sid === myId && <Mini label="✏️ Edit" onPress={() => { setMsgText(selMsg.text); setSelMsg({ ...selMsg, editMode: true }); }} />}
+              <Mini label={t('deleteForMe')} onPress={deleteForMe} />
+              {selMsg.sid === myId && <Mini label={t('deleteForAll')} onPress={deleteForAll} />}
+              <Mini label={t('cancel')} onPress={() => { setSelMsg(null); setMsgText(''); }} />
+            </View>
+          )}
+          <View style={s.sendRow}>
+            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={msgText} onChangeText={setMsgText} onSubmitEditing={() => (selMsg && selMsg.editMode ? editMsg() : sendMsg())} />
+            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={() => (selMsg && selMsg.editMode ? editMsg() : sendMsg())}>
+              <Text style={s.bt}>{selMsg && selMsg.editMode ? '✓' : '➤'}</Text>
+            </TouchableOpacity>
+          </View>
+          <Nav label={t('leaveChat')} onPress={leaveChat} />
+        </>))}
+
+        {screen === 'profile' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Pic uri={myPhoto} emoji={profile.avatar} size={90} />
+            <Mini label={myPhoto ? '📷 Photo badlo' : '📷 Apni photo lagao'} onPress={() => pickPhoto('me')} />
+            {currentUser && <Text style={s.sm}>@{currentUser.username} • {currentUser.email}</Text>}
+            <TextInput style={s.i} placeholder={t('name')} placeholderTextColor={PH} value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} />
+            <TextInput style={s.i2} placeholder={t('bio')} placeholderTextColor={PH} value={profile.bio} onChangeText={(v) => setProfile({ ...profile, bio: v })} multiline />
+            <TextInput style={s.i} placeholder={t('avatar')} placeholderTextColor={PH} value={profile.avatar} onChangeText={(v) => setProfile({ ...profile, avatar: v })} maxLength={2} />
+            <Btn label={t('save')} onPress={() => { saveProfile(profile); setNotice('Profile saved!'); }} />
+            <Nav label={t('back')} onPress={() => setScreen('home')} />
+          </ScrollView>
+        )}
+
+        {screen === 'style' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={s.sm}>Theme chuno, har jagah badal jayegi 💞</Text>
+            <View style={s.miniRow}>
+              {Object.keys(skins).map((k) => <Mini key={k} label={(skin === k ? '✅ ' : '') + skins[k].name} onPress={() => { setSkin(k); localStorage.setItem('nexdare_skin', k); }} />)}
+              <Mini label="Auto" onPress={() => { setSkin(''); localStorage.removeItem('nexdare_skin'); }} />
+            </View>
+            <Text style={s.sm}>Apni photo (profile aur chats me dikhegi)</Text>
+            <Pic uri={myPhoto} emoji={profile.avatar} size={70} />
+            <Mini label="📷 Apni photo lagao" onPress={() => pickPhoto('me')} />
+            <Text style={s.sm}>Background photo (poori app me)</Text>
+            <View style={s.miniRow}>
+              <Mini label="🖼️ Background lagao" onPress={() => pickPhoto('bg')} />
+              {!!bgPhoto && <Mini label="Hatao" onPress={() => { setBgPhoto(''); localStorage.removeItem('nexdare_bgphoto'); }} />}
+            </View>
+            <Nav label={t('back')} onPress={() => setScreen('home')} />
+          </ScrollView>
+        )}
+
+        {screen === 'friends' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={s.sm}>Tumhara username</Text>
+            <Text style={[s.code2, { color: th.accent2 }]}>@{currentUser ? currentUser.username : ''}</Text>
+            <Mini label="📋 Copy" onPress={() => copyText('@' + (currentUser ? currentUser.username : ''))} />
+            {!!pubError && <Text style={[s.sm, { color: '#ff6b6b' }]}>{pubError}</Text>}
+            <TextInput style={s.i} placeholder="Friend ka username" placeholderTextColor={PH} autoCapitalize="none" value={reqName} onChangeText={setReqName} />
+            <Btn label="Request bhejo 📩" onPress={sendFriendRequest} />
+            {Object.keys(friendReqs).length > 0 && (<>
+              <Text style={[s.q, { color: th.accent2 }]}>Requests</Text>
+              {Object.keys(friendReqs).map((k) => {
+                const r = friendReqs[k];
+                return (
+                  <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
+                    <Text style={[s.cardT, { color: th.accent2 }]}>{(r.avatar || '😎') + ' ' + (r.name || r.username)}</Text>
+                    <Text style={s.cardS}>@{r.username}</Text>
+                    <View style={s.miniRow}>
+                      <Mini label="Accept ✅" onPress={() => acceptRequest(r)} />
+                      <Mini label="Reject" onPress={() => declineRequest(r)} />
+                    </View>
+                  </View>
+                );
+              })}
+            </>)}
+            <Text style={[s.q, { color: th.accent2 }]}>{t('friends')}</Text>
+            {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : (
+              <View style={{ width: '100%' }}>
+                {Object.keys(cloudFriends).map((k) => cloudFriends[k])
+                  .sort((a, b) => ((previews[b.chatId] && previews[b.chatId].t) || 0) - ((previews[a.chatId] && previews[a.chatId].t) || 0))
+                  .map((f) => {
+                    const pv = previews[f.chatId];
+                    const un = unread[f.chatId] || 0;
+                    return (
+                      <View key={f.uid}>
+                        {chatRow({
+                          rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username,
+                          sub: pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
+                          time: pv ? fmtListTime(pv.t) : '', badge: un,
+                          onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
+                        })}
+                        {friendMenu === f.uid && (
+                          <View style={s.miniRow}>
+                            <Mini label={t('remove')} onPress={() => { setFriendMenu(null); removeCloudFriend(f); }} />
+                            <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+              </View>
+            )}
+            <Nav label={t('back')} onPress={() => setScreen('home')} />
+          </ScrollView>
+        )}
+
+        {screen === 'wyr' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>🤔 Would You Rather</Text>
+            {pairGate(renderPq('wyr'))}
+            <Nav label={t('back')} onPress={backToGames} />
+          </ScrollView>
+        )}
+
+        {screen === 'nhie' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>🙈 Never Have I Ever</Text>
+            {pairGate(renderPq('nhie'))}
+            <Nav label={t('back')} onPress={backToGames} />
+          </ScrollView>
+        )}
+
+        {screen === 'quiz' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>💘 Love Quiz</Text>
+            {pairGate(renderQuiz())}
+            <Nav label={t('back')} onPress={backToGames} />
+          </ScrollView>
+        )}
+
+        {screen === 'daily' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>❓ Daily Question</Text>
+            {pairGate(renderDaily())}
+            <Nav label={t('back')} onPress={backToCouple} />
+          </ScrollView>
+        )}
+
+        {screen === 'mem' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>💗 Hamara Safar</Text>
+            {pairGate(renderMem())}
+            <Nav label={t('back')} onPress={backToCouple} />
+          </ScrollView>
+        )}
+
+        {screen === 'notes' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>💌 Sweet Notes</Text>
+            {pairGate(renderNotes())}
+            <Nav label={t('back')} onPress={backToCouple} />
+          </ScrollView>
+        )}
+
+        {screen === 'album' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>📸 Shared Album</Text>
+            {pairGate(renderAlbum())}
+            <Nav label={t('back')} onPress={backToCouple} />
+          </ScrollView>
+        )}
+
+        {screen === 'couple' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>💞 Couple Space</Text>
+            {pairGate(<>
+              <Text style={s.sm}>🔥 Streak: {streakBase} din</Text>
+              <Btn label="❓ Daily Question" onPress={() => goScreen('daily')} />
+              <Btn label="💗 Hamara Safar" onPress={() => goScreen('mem')} />
+              <Btn label="📸 Shared Album" onPress={() => goScreen('album')} />
+              <Btn label="💌 Sweet Notes" onPress={() => goScreen('notes')} />
+            </>)}
+            <Nav label={t('back')} onPress={backToTools} />
+          </ScrollView>
+        )}
+
+        {screen === 'groups' && !grp && (subtle ? (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>Group Chat 👥</Text>
+            <TextInput style={s.i} placeholder="Naye group ka naam" placeholderTextColor={PH} value={grpNewName} onChangeText={setGrpNewName} />
+            <Btn label="➕ Group banao" onPress={createGroup} />
+            <TextInput style={s.i} placeholder="Group code" placeholderTextColor={PH} autoCapitalize="none" value={grpJoinCode} onChangeText={setGrpJoinCode} />
+            <Btn label="🔑 Group join karo" onPress={joinGroup} />
+            <Text style={[s.q, { color: th.accent2 }]}>Mere groups</Text>
+            {Object.keys(groupList).length === 0 ? <Text style={s.sm}>Abhi koi group nahi. Naya banao ya code se join karo.</Text> : (
+              <View style={{ width: '100%' }}>
+                {Object.keys(groupList).map((k) => ({ ...groupList[k], gid: k })).sort((a, b) => (b.t || 0) - (a.t || 0)).map((g) => (
+                  <View key={g.gid}>
+                    {chatRow({
+                      rowKey: g.gid, emoji: '👥', title: g.name, sub: 'Tap karke chat kholo',
+                      onPress: () => openGroup(g), onMore: () => setFriendMenu(friendMenu === g.gid ? null : g.gid),
+                    })}
+                    {friendMenu === g.gid && (
+                      <View style={s.miniRow}>
+                        <Mini label="🚪 Group chhodo" onPress={() => { setFriendMenu(null); removeGroupFromList(g); }} />
+                        <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+            <Nav label={t('back')} onPress={backToTools} />
+          </ScrollView>
+        ) : (<>
+          <Text style={s.sm}>{t('needBrowserChat')}</Text>
+          <Nav label={t('back')} onPress={backToTools} />
+        </>))}
+
+        {screen === 'groups' && !!grp && (grpMeta === null ? (<>
+          <Text style={s.sm}>Ye group delete ho chuka hai.</Text>
+          <Nav label={t('back')} onPress={closeGroup} />
+        </>) : (<>
+          <View style={s.dmHead}>
+            <View style={s.avWrap}><Text style={{ fontSize: 26 }}>👥</Text></View>
+            <TouchableOpacity style={{ flex: 1, marginLeft: 10 }} onPress={() => { setGrpInfo(!grpInfo); setGrpConfirm(''); }}>
+              <Text numberOfLines={1} style={[s.code2, { color: th.accent2, marginBottom: 0, fontSize: 20 }]}>{grp.name}</Text>
+              <Text style={s.cardS}>{Object.keys(grpMembers).length} members • info ke liye tap karo</Text>
+            </TouchableOpacity>
+          </View>
+          {grpInfo && (
+            <View style={[s.card, { borderColor: th.accent + '55', width: '92%' }]}>
+              <Text style={s.cardS}>Group code (dost isse join karenge):</Text>
+              <Text style={[s.code2, { color: th.accent2 }]}>{grp.code}</Text>
+              <View style={s.miniRow}>
+                <Mini label="📋 Code copy" onPress={() => copyText(grp.code)} />
+                <Mini label="📤 Share" onPress={shareGroupCode} />
+              </View>
+              <Text style={[s.cardT, { color: th.accent2 }]}>Members</Text>
+              {Object.keys(grpMembers).map((uid) => (
+                <Text key={uid} style={s.cardS}>{(grpMembers[uid].avatar || '😎') + ' ' + grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '')}</Text>
+              ))}
+              <View style={s.miniRow}>
+                <Mini label={grpConfirm === 'leave' ? 'Pakka chhodna hai?' : '🚪 Group chhodo'} onPress={leaveGroupForever} />
+                {!!grpMeta && grpMeta.owner === myUid && <Mini label={grpConfirm === 'del' ? 'Pakka delete?' : '🗑️ Group delete'} onPress={deleteGroupForAll} />}
+              </View>
+            </View>
+          )}
+          <Text style={s.sm}>🔒 End-to-end encrypted • sirf code wale padh sakte hain</Text>
+          <ScrollView ref={grpScrollRef} style={s.msgBox} onContentSizeChange={() => grpScrollRef.current && grpScrollRef.current.scrollToEnd({ animated: true })}>
+            {grpVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
+            {grpVisible.map((m) => {
+              const mine = myUid && m.from === myUid;
+              const sel = grpSel && grpSel.key === m.key;
+              return (
+                <TouchableOpacity key={m.key} onPress={() => setGrpSel(sel ? null : m)}
+                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
+                  <Text style={s.bname}>{mine ? t('you') : m.name}</Text>
+                  <Text style={s.btext}>{m.text}</Text>
+                  <Text style={s.tick}>{m.edited ? 'edited  ' : ''}{fmtListTime(m.t)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {!!grpSel && (
+            <View style={s.miniRow}>
+              {grpSel.from === myUid && <Mini label="✏️ Edit" onPress={grpStartEdit} />}
+              <Mini label={t('deleteForMe')} onPress={grpDeleteForMe} />
+              {grpSel.from === myUid && <Mini label={t('deleteForAll')} onPress={grpDeleteForAll} />}
+              <Mini label={t('cancel')} onPress={() => setGrpSel(null)} />
+            </View>
+          )}
+          {!!grpEditing && <Text style={s.sm}>✏️ Message edit ho raha hai <Text onPress={() => { setGrpEditing(null); setGrpText(''); }}> (cancel)</Text></Text>}
+          <View style={s.sendRow}>
+            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={grpText} onChangeText={setGrpText} onSubmitEditing={sendGrp} />
+            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendGrp}><Text style={s.bt}>{grpEditing ? '✓' : '➤'}</Text></TouchableOpacity>
+          </View>
+          <Nav label={t('back')} onPress={closeGroup} />
+        </>))}
+
+        {screen === 'dm' && dmFriend && (subtle ? (<>
+          <View style={s.dmHead}>
+            <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} />
+            <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0, flex: 1 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+            {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
+            <TouchableOpacity style={s.attachBtn} onPress={() => setDmMenu(dmMenu ? '' : 'menu')}><Text style={s.bt}>⋮</Text></TouchableOpacity>
+          </View>
+          {!!dmMenu && (
+            <View style={s.miniRow}>
+              {dmMenu === 'report' ? (<>
+                <Mini label="Spam" onPress={() => reportUser('Spam')} />
+                <Mini label="Abuse" onPress={() => reportUser('Abuse')} />
+                <Mini label="Fake account" onPress={() => reportUser('Fake account')} />
+              </>) : (<>
+                <Mini label={dmMenu === 'blockConfirm' ? 'Pakka block?' : '🚫 Block'} onPress={() => (dmMenu === 'blockConfirm' ? blockUser(dmFriend) : setDmMenu('blockConfirm'))} />
+                <Mini label="⚠️ Report" onPress={() => setDmMenu('report')} />
+              </>)}
+              <Mini label={t('cancel')} onPress={() => setDmMenu('')} />
+            </View>
+          )}
+          <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar Message screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
+          <ScrollView ref={dmScrollRef} style={s.msgBox} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
+            {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
+            {dmVisible.map((m) => {
+              const mine = myUid && m.from === myUid;
+              const sel = dmSel && dmSel.key === m.key;
+              const data = m.file ? dmImgs[m.file.id] : null;
+              return (
+                <TouchableOpacity key={m.key} onPress={() => setDmSel(sel ? null : m)}
+                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
+                  <Text style={s.bname}>{mine ? t('you') : (dmFriend.name || dmFriend.username)}</Text>
+                  {isImg(m.file) && (data && data !== 'ERR' ? <RNImage source={{ uri: data }} style={s.dmPic} resizeMode="cover" /> : <Text style={s.btext}>{data === 'ERR' ? '🖼️ Photo khul nahi payi' : '🖼️ Photo load ho rahi hai...'}</Text>)}
+                  {isAud(m.file) && (data && data !== 'ERR' && Platform.OS === 'web' ? React.createElement('audio', { src: data, controls: true, style: { width: 210 } }) : <Text style={s.btext}>🎤 Voice note load ho raha hai...</Text>)}
+                  {!!m.file && !isImg(m.file) && !isAud(m.file) && <Text style={s.btext}>📎 {m.file.name} ({fmtSize(m.file.size)})</Text>}
+                  {!!m.file && !isAud(m.file) && (
+                    <TouchableOpacity onPress={() => downloadDmFile(m.file)}><Text style={[s.bname, { textDecorationLine: 'underline' }]}>⬇️ Download</Text></TouchableOpacity>
+                  )}
+                  {!!m.text && <Text style={s.btext}>{m.text}</Text>}
+                  <Text style={s.tick}>{m.edited ? 'edited  ' : ''}{mine ? (friendSeen >= m.t ? '✓✓ Seen' : '✓ Sent') : ''}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {!!dmSel && (
+            <View style={s.miniRow}>
+              {dmSel.from === myUid && !dmSel.file && <Mini label="✏️ Edit" onPress={startEdit} />}
+              <Mini label={t('deleteForMe')} onPress={dmDeleteForMe} />
+              {dmSel.from === myUid && <Mini label={t('deleteForAll')} onPress={dmDeleteForAll} />}
+              <Mini label={t('cancel')} onPress={() => setDmSel(null)} />
+            </View>
+          )}
+          {editing && <Text style={s.sm}>✏️ Message edit ho raha hai <Text onPress={() => { setEditing(null); setDmText(''); }}> (cancel)</Text></Text>}
+          {dmBusy && <Text style={s.sm}>⏳ Bhej raha hoon...</Text>}
+          {recording && <Text style={s.sm}>🔴 Record ho raha hai... ruk-ne ke liye ⏹ dabao</Text>}
+          <View style={s.sendRow}>
+            <TouchableOpacity style={s.attachBtn} onPress={pickDmFile}><Text style={s.bt}>📎</Text></TouchableOpacity>
+            <TouchableOpacity style={s.attachBtn} onPress={recording ? stopRec : startRec}><Text style={s.bt}>{recording ? '⏹' : '🎤'}</Text></TouchableOpacity>
+            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={dmText} onChangeText={setDmText} onSubmitEditing={sendDm} />
+            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendDm}><Text style={s.bt}>{editing ? '✓' : '➤'}</Text></TouchableOpacity>
+          </View>
+          <Nav label={t('back')} onPress={leaveDm} />
+        </>) : (<>
+          <Text style={s.sm}>{t('needBrowserChat')}</Text>
+          <Nav label={t('back')} onPress={leaveDm} />
+        </>))}
+
+        {screen === 'settings' && (
+          <ScrollView contentContainerStyle={sc}>
+            <View style={s.setRow}>
+              <Text style={[s.sm, { marginRight: 12 }]}>{t('sound')}</Text>
+              <Switch value={soundOn} onValueChange={(v) => { setSoundOn(v); localStorage.setItem('nexdare_sound', v ? '1' : '0'); }} />
+            </View>
+            <View style={s.setRow}>
+              <Text style={[s.sm, { marginRight: 12 }]}>{t('notifications')}</Text>
+              <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} />
+            </View>
+            <Text style={s.sm}>🌐 Language</Text>
+            <View style={s.miniRow}>
+              {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => changeLang(l[0])} />)}
+            </View>
+            <Text style={s.sm}>🛡️ Safety</Text>
+            {Object.keys(blocks).length > 0 && (<>
+              <Text style={s.sm}>Blocked users:</Text>
+              {Object.keys(blocks).map((k) => (
+                <View key={k} style={s.miniRow}>
+                  <Text style={[s.sm, { alignSelf: 'center', marginRight: 8 }]}>@{blocks[k].username}</Text>
+                  <Mini label="Unblock" onPress={() => unblockUser(k)} />
+                </View>
+              ))}
+            </>)}
+            <Nav label="📄 Privacy Policy" onPress={() => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e')} />
+            {!delConfirm ? <Nav label="🗑️ Account delete" onPress={() => setDelConfirm(true)} /> : (<>
+              <Text style={s.sm}>Pakka? Aapka account aur data hamesha ke liye delete ho jayega.</Text>
+              <Btn label="Haan, delete karo" onPress={deleteAccount} />
+              <Nav label={t('cancel')} onPress={() => setDelConfirm(false)} />
+            </>)}
+            <Btn label={t('logout')} onPress={logout} />
+            {!showClearConfirm ? <Btn label={t('clearData')} onPress={() => setShowClearConfirm(true)} /> : (<>
+              <Text style={s.sm}>{t('clearConfirm')}</Text>
+              <Btn label={t('yesClear')} onPress={clearAllData} />
+              <Nav label={t('cancel')} onPress={() => setShowClearConfirm(false)} />
+            </>)}
+            <Nav label={t('back')} onPress={() => setScreen('home')} />
+          </ScrollView>
+        )}
+
+        {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 10 }]}>{error}</Text>}
+        {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 8 }]}>{notice}</Text>}
+      </>)}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  c: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  cTop: { justifyContent: 'flex-start', paddingTop: 50 },
+  bgImg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.22 },
+  authBox: { width: '100%', alignItems: 'center', paddingHorizontal: 24, zIndex: 10 },
+  glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, opacity: 0.25 },
+  glow2: { position: 'absolute', width: 320, height: 320, borderRadius: 160, opacity: 0.2 },
+  floatWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  floaty: { position: 'absolute', opacity: 0.35 },
+  welcome: { fontSize: 18, letterSpacing: 6, fontWeight: '600', marginBottom: 8 },
+  rule: { width: 60, height: 3, borderRadius: 2, marginBottom: 12 },
+  logo: { fontSize: 42, fontWeight: '800', marginBottom: 30, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18 },
+  t: { fontSize: 26, fontWeight: '700', color: '#fff', marginBottom: 16, textAlign: 'center' },
+  tStyled: { fontSize: 22, fontWeight: '600', color: '#fff', marginBottom: 20, textAlign: 'center', opacity: 0.9 },
+  bt: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  btBig: { fontSize: 20 },
+  b: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 30, marginVertical: 8, minWidth: 220, alignItems: 'center', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  bBig: { paddingVertical: 18, minWidth: 240 },
+  bHalf: { minWidth: 0, width: 150, paddingHorizontal: 10, marginHorizontal: 8 },
+  sideRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  setRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
+  nav: { borderWidth: 1.5, borderRadius: 24, paddingVertical: 10, paddingHorizontal: 22, marginVertical: 6 },
+  navt: { fontSize: 15, fontWeight: '600' },
+  mini: { borderWidth: 1, borderRadius: 18, paddingVertical: 7, paddingHorizontal: 14, marginHorizontal: 4, marginVertical: 3 },
+  miniT: { fontSize: 13, fontWeight: '600' },
+  miniRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginVertical: 8 },
+  dotRow: { flexDirection: 'row', marginTop: 28 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ffffff44', marginHorizontal: 4 },
+  code: { fontSize: 42, fontWeight: '800', letterSpacing: 8, marginVertical: 12 },
+  code2: { fontSize: 22, fontWeight: '700', letterSpacing: 2, marginBottom: 6 },
+  sm: { color: '#ffffffbb', fontSize: 14, textAlign: 'center', marginVertical: 6, paddingHorizontal: 10 },
+  i: { backgroundColor: '#ffffff18', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 18, color: '#fff', fontSize: 16, width: '85%', marginVertical: 8, textAlign: 'center' },
+  i2: { backgroundColor: '#ffffff18', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 18, color: '#fff', fontSize: 15, width: '90%', marginVertical: 8, minHeight: 80, textAlignVertical: 'top' },
+  q: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginVertical: 10, paddingHorizontal: 12 },
+  gameScroll: { width: '100%', maxHeight: '80%' },
+  gameInner: { alignItems: 'center', paddingBottom: 30 },
+  replyBox: { backgroundColor: '#ffffff15', borderRadius: 16, padding: 14, marginVertical: 10, width: '90%' },
+  bname: { color: '#ffffff99', fontSize: 12, marginBottom: 4 },
+  btext: { color: '#fff', fontSize: 15, lineHeight: 22 },
+  tick: { color: '#ffffffaa', fontSize: 11, textAlign: 'right', marginTop: 3 },
+  pic: { width: '100%', height: 180, borderRadius: 12, marginTop: 8 },
+  picSmall: { width: 120, height: 120, borderRadius: 12, marginVertical: 8 },
+  msgBox: { width: '100%', maxHeight: 340, marginVertical: 8 },
+  bubble: { maxWidth: '80%', padding: 12, borderRadius: 16, marginVertical: 4, marginHorizontal: 8 },
+  mine: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  theirs: { alignSelf: 'flex-start', backgroundColor: '#ffffff18', borderBottomLeftRadius: 4 },
+  selBubble: { borderWidth: 2, borderColor: '#fff' },
+  dmHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, width: '100%', paddingHorizontal: 12 },
+  sendRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 8 },
+  msgInput: { flex: 1, backgroundColor: '#ffffff18', borderRadius: 22, paddingVertical: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, marginRight: 8 },
+  attachBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff18', marginRight: 6 },
+  dmPic: { width: 220, height: 220, borderRadius: 12, marginBottom: 6 },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: '#ffffff12', borderRadius: 14, padding: 14, marginVertical: 6, borderWidth: 1 },
+  cardT: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
+  badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  chatRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
+  avWrap: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#ffffff1f', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  rowTitle: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700' },
+  rowTime: { color: '#ffffff99', fontSize: 12, marginLeft: 8 },
+  rowSub: { flex: 1, color: '#ffffffaa', fontSize: 14 },
+});
