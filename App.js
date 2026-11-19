@@ -368,6 +368,121 @@ const showNotif = (title, body, enabled) => {
 };
 
 // ===== PART 1 END. Neeche Part 2 paste karo (export default function App ... se shuru) =====
+
+// ===== EXTRA START: ye Part 1 ke neeche aur Part 2 ("export default function App") ke upar paste karo =====
+
+truths.push(
+  'Hamari kaunsi baat yaad karke tum ab bhi muskuraate ho?',
+  'Mujhe pehli baar dekhkar tumhare dil me kya aaya tha?',
+  'Kya tumne kabhi mere liye koi gaana ya shayari likhi hai?',
+  'Meri kaunsi nazar tumhe sabse zyada pasand hai?',
+  'Agar hum ek raat ke liye kahin phans jayein, to tum kya karoge?',
+  'Tumhe lagta hai hum dono me sabse zyada kya common hai?',
+  'Kya tumne kabhi mujhse milne ke liye jhooth bola hai?',
+  'Meri kaunsi cheez tumhe thodi si irritate karti hai, par phir bhi pyaari lagti hai?',
+  'Mujhse sabse pehle kya kehna chahoge jab hum agli baar milenge?',
+  'Kya tum mujhe apne ghar walon se milwane ke baare me sochte ho?',
+  'Hamari kaunsi date tumhe sabse special lagi?',
+  'Kya kabhi raat ko mujhe yaad karke neend nahi aayi?',
+  'Mere kaunse kapde tumhe sabse zyada pasand hain?',
+  'Agar main kal tumse door chala/chali jaun, to tum kya karoge?',
+  'Mujhe lekar tumhara sabse bada sapna kya hai?',
+  'Kya tumne kabhi mere message baar baar padhe hain?',
+  'Meri kaunsi aawaz ya line tumhe sabse zyada yaad rehti hai?',
+  'Hamare rishte me tumhe sabse zyada kis baat ka darr lagta hai?',
+  'Tumhe mere saath kaunsi jagah par waqt bitana sabse achha lagta hai?',
+  'Pehli baar jab humne haath pakda, tumhe kaisa laga tha?',
+  'Mujhe khush karne ke liye tumne aaj tak sabse bada kya kiya hai?',
+  'Agar hum bachpan me milte, to tumhe kya lagta hum kaise dost hote?',
+  'Kya tumhe lagta hai ki hum ek dusre ke liye bane hain? Kyun?',
+  'Meri woh kaunsi baat hai jo tumhe sabse zyada hasaati hai?',
+  'Agar main tumse ek vaada maangu, to wo kya hoga jo tum turant doge?'
+);
+dares.push(
+  'Mujhe apni aankhon se 15 second tak bina palak jhapkaye dekho.',
+  'Mere liye ek chhota sa love song hum karke sunao.',
+  'Mujhe batao ki main tumhe sabse zyada kab pyaara/pyaari lagta/lagti hoon.',
+  'Apne haath se ek chhota sa heart banake mujhe photo bhejo.',
+  'Mere naam ke har akshar se ek pyaara shabd batao.',
+  'Mujhe ek romantic voice note bhejo jisme tum mera naam lo.',
+  'Mujhe 1 se 10 tak ginti sunao, har number ke saath ek tareef ke saath.',
+  'Mere liye 30 second ka ek romantic dialogue bolo.',
+  'Mujhe ek selfie bhejo jisme tum mere liye muskura rahe ho.',
+  'Mere liye ek 3 line ki love poem abhi likho.',
+  'Mujhe batao ki agar hum kal date par jaayein to tum kya pehnoge/pehnogi.',
+  'Mujhe ek lamba, pyaara sa "good morning" message likho.',
+  'Mere liye apni awaaz me ek chhoti si lori gaao.',
+  'Mujhe ek surprise gift ka idea batao jo tum mujhe dena chahte ho.',
+  'Mujhe apni phone gallery ki ek pyaari yaad ki photo dikhao.',
+  'Mere liye ek romantic emoji story bhejo, sirf emojis me.',
+  'Mujhe abhi 3 baar "I miss you" alag alag andaaz me bolo.',
+  'Mere naam ka ek cute nickname socho aur mujhe batao kyun.',
+  'Mujhe apni pehli impression ke baare me 2 line likho.',
+  'Mere liye ek chhoti si romantic shayari banao.',
+  'Mujhe tumhari pasand ka ek romantic gaana bhejo aur batao kyun.',
+  'Mere saath ek funny selfie lo, jisme dono acting karein.',
+  'Mere liye apne haath se ek chhoti si card ya drawing banao aur bhejo.',
+  'Mujhe batao ki hamari love story ka title kya hoga.',
+  'Mere liye ek romantic quote likho jo sirf mere liye ho.'
+);
+
+translations.hi = { ...translations.en,
+  welcome: 'स्वागत है', start: '💘 शुरू करें', createRoom: '✦ रूम बनाएं', joinRoom: '✦ रूम जॉइन करें',
+  next: 'अगला ›', back: '‹ वापस', chat: '💬 प्राइवेट चैट', profile: '👤 प्रोफाइल', settings: '⚙️ सेटिंग्स',
+  send: 'भेजो 🚀', truth: 'ट्रुथ 💭', dare: 'डेयर 😈', customQ: '📝 अपना सवाल लिखो',
+  donePlus: 'कर दिया / बता दिया (+1) ✅', failedMinus: 'नहीं कर पाया (-1) ❌', endGame: 'गेम खत्म', newGame: 'नया गेम',
+  join: 'जॉइन', msgPlaceholder: 'मैसेज लिखो...', you: 'तुम', partner: 'पार्टनर', save: 'सेव', logout: '🚪 लॉगआउट',
+  sound: 'साउंड इफेक्ट्स', notifications: 'नोटिफिकेशन', cancel: 'कैंसल', videoCall: '📹 वीडियो कॉल',
+  startBattle: 'बैटल शुरू!', flip: 'सिक्का उछालो!', chooseSide: 'अपना साइड चुनो 🪙', noMsg: 'अभी कोई मैसेज नहीं। पहला भेजो! 👋',
+};
+translations.es = { ...translations.en,
+  welcome: 'BIENVENIDO', start: '💘 Empezar', createRoom: '✦ Crear sala', joinRoom: '✦ Unirse a sala',
+  next: 'Siguiente ›', back: '‹ Atrás', chat: '💬 Chat privado', profile: '👤 Perfil', settings: '⚙️ Ajustes',
+  send: 'Enviar 🚀', truth: 'Verdad 💭', dare: 'Reto 😈', customQ: '📝 Escribe la tuya',
+  donePlus: 'Hecho / Dicho (+1) ✅', failedMinus: 'No pudo (-1) ❌', endGame: 'Terminar juego', newGame: 'Nuevo juego',
+  join: 'Unirse', msgPlaceholder: 'Escribe un mensaje...', you: 'Tú', partner: 'Pareja', save: 'Guardar', logout: '🚪 Cerrar sesión',
+  sound: 'Efectos de sonido', notifications: 'Notificaciones', cancel: 'Cancelar', videoCall: '📹 Videollamada',
+  startBattle: '¡Empezar batalla!', flip: '¡Lanza la moneda!', chooseSide: 'Elige tu lado 🪙', noMsg: 'Aún no hay mensajes. ¡Envía el primero! 👋',
+};
+translations.fr = { ...translations.en,
+  welcome: 'BIENVENUE', start: '💘 Commencer', createRoom: '✦ Créer une salle', joinRoom: '✦ Rejoindre une salle',
+  next: 'Suivant ›', back: '‹ Retour', chat: '💬 Chat privé', profile: '👤 Profil', settings: '⚙️ Paramètres',
+  send: 'Envoyer 🚀', truth: 'Vérité 💭', dare: 'Défi 😈', customQ: '📝 Écris la tienne',
+  donePlus: 'Fait / Dit (+1) ✅', failedMinus: "N'a pas pu (-1) ❌", endGame: 'Terminer la partie', newGame: 'Nouvelle partie',
+  join: 'Rejoindre', msgPlaceholder: 'Écris un message...', you: 'Toi', partner: 'Partenaire', save: 'Enregistrer', logout: '🚪 Déconnexion',
+  sound: 'Effets sonores', notifications: 'Notifications', cancel: 'Annuler', videoCall: '📹 Appel vidéo',
+  startBattle: 'Commencer la bataille !', flip: 'Lance la pièce !', chooseSide: 'Choisis ton côté 🪙', noMsg: 'Pas encore de messages. Envoie le premier ! 👋',
+};
+
+const LANGS = [
+  ['en', 'English'], ['hi', 'हिन्दी'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'], ['pt', 'Português'],
+  ['it', 'Italiano'], ['ru', 'Русский'], ['ar', 'العربية'], ['ja', '日本語'], ['ko', '한국어'], ['zh-CN', '中文'],
+  ['bn', 'বাংলা'], ['ta', 'தமிழ்'], ['te', 'తెలుగు'], ['mr', 'मराठी'], ['gu', 'ગુજરાતી'], ['pa', 'ਪੰਜਾਬੀ'],
+  ['ur', 'اردو'], ['tr', 'Türkçe'], ['id', 'Indonesia'], ['th', 'ไทย'], ['vi', 'Tiếng Việt'],
+];
+
+const autoCache = {};
+const autoTranslate = async (code) => {
+  try {
+    const saved = localStorage.getItem('nexdare_tr_' + code);
+    if (saved) { autoCache[code] = JSON.parse(saved); return; }
+    const keys = Object.keys(translations.en);
+    const out = {};
+    for (let i = 0; i < keys.length; i += 20) {
+      const chunk = keys.slice(i, i + 20);
+      const q = chunk.map((k) => translations.en[k]).join('\n');
+      const res = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=' + code + '&dt=t&q=' + encodeURIComponent(q));
+      const d = await res.json();
+      const parts = d[0].map((x) => x[0]).join('').split('\n');
+      if (parts.length === chunk.length) chunk.forEach((k, j) => { out[k] = parts[j].trim(); });
+    }
+    autoCache[code] = out;
+    localStorage.setItem('nexdare_tr_' + code, JSON.stringify(out));
+  } catch (e) { autoCache[code] = {}; }
+};
+
+// ===== EXTRA END =====
+
 export default function App() {
   const [page, setPage] = useState(1);
   const [screen, setScreen] = useState('home');
@@ -442,8 +557,16 @@ export default function App() {
   const [dmSeen, setDmSeen] = useState({});
   const [editing, setEditing] = useState(null);
   const [recording, setRecording] = useState(false);
+  const [unread, setUnread] = useState({});
 
-  const t = (key) => translations.en[key] || key;
+  const [uiLang, setUiLang] = useState(localStorage.getItem('nexdare_lang') || 'en');
+  const [, bump] = useState(0);
+  const t = (key) => ((translations[uiLang] || autoCache[uiLang] || {})[key]) || translations.en[key] || key;
+  const changeLang = async (code) => {
+    setUiLang(code); localStorage.setItem('nexdare_lang', code);
+    if (!translations[code]) { await autoTranslate(code); bump((n) => n + 1); }
+  };
+  useEffect(() => { if (uiLang !== 'en' && !translations[uiLang]) autoTranslate(uiLang).then(() => bump((n) => n + 1)); }, []);
   const skins = {
     rose: { name: 'Rose 🌹', bg: '#2a0a18', accent: '#ff4d8d', accent2: '#ffd1e3', glow: '#ff4d8d', glow2: '#8a1c4d' },
     orchid: { name: 'Orchid 💜', bg: '#24092a', accent: '#c850c0', accent2: '#f3c9ef', glow: '#c850c0', glow2: '#ff4d8d' },
@@ -1051,8 +1174,13 @@ export default function App() {
     const check = async () => {
       for (const f of friendsArr) {
         try {
-          const v = await call('GET', 'dm/' + f.chatId + '/messages', undefined, 'orderBy=%22%24key%22&limitToLast=1');
-          const m = v ? v[Object.keys(v)[0]] : null;
+          const v = await call('GET', 'dm/' + f.chatId + '/messages', undefined, 'orderBy=%22%24key%22&limitToLast=20');
+          const arr = v ? Object.keys(v).map((k) => v[k]) : [];
+          const mySeen = (await call('GET', 'dm/' + f.chatId + '/seen/' + currentUser.uid)) || 0;
+          const inThis = dmFriend && dmFriend.chatId === f.chatId;
+          const cnt = inThis ? 0 : arr.filter((x) => x.from !== currentUser.uid && x.t > mySeen).length;
+          setUnread((u) => (u[f.chatId] === cnt ? u : { ...u, [f.chatId]: cnt }));
+          const m = arr.length ? arr.reduce((a, b) => (b.t > a.t ? b : a)) : null;
           if (!m) { if (lastNotif.current[f.chatId] === undefined) lastNotif.current[f.chatId] = 0; continue; }
           const prev = lastNotif.current[f.chatId];
           lastNotif.current[f.chatId] = m.t;
@@ -1271,10 +1399,12 @@ export default function App() {
   };
 
   // ===== PART 2 END. Neeche Part 3 paste karo (const Btn se shuru) =====
+
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
   const myId = ident ? ident.sid : null;
   const myUid = currentUser ? currentUser.uid : null;
+  const totalUnread = Object.keys(unread).reduce((a, k) => a + (unread[k] || 0), 0);
 
   let th = themes.p1;
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
@@ -1473,7 +1603,7 @@ export default function App() {
 
         {screen === 'home' && page === 3 && (<>
           <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('chat'); }} />
-          <Btn label={t('friends')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
+          <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
           <Btn label="🎨 Nexstyle ♡" onPress={() => setScreen('style')} />
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
           <Btn label={t('settings')} onPress={() => setScreen('settings')} />
@@ -1509,7 +1639,6 @@ export default function App() {
           <Text style={[s.code2, { color: th.accent2 }]}>{shared ? '💞 ' + partnerName : chatCode}</Text>
           <Text style={s.sm}>{shared ? t('e2e') + shared.safety : t('waitPartner') + ': ' + chatCode}</Text>
           <View style={s.miniRow}>
-            {!!shared && <Mini label={t('videoCall')} onPress={startChatCall} />}
             <Mini label={t('saveChat')} onPress={saveChat} />
             <Mini label={confirmDel ? t('confirmDelete') : t('deleteChat')} onPress={deleteChat} />
           </View>
@@ -1606,10 +1735,13 @@ export default function App() {
               const f = cloudFriends[k];
               return (
                 <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
-                  <Text style={[s.cardT, { color: th.accent2 }]}>{(f.avatar || '😎') + ' ' + (f.name || f.username)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[s.cardT, { color: th.accent2, flex: 1 }]}>{(f.avatar || '😎') + ' ' + (f.name || f.username)}</Text>
+                    {!!unread[f.chatId] && <View style={s.badge}><Text style={s.badgeT}>{unread[f.chatId] >= 20 ? '20+' : unread[f.chatId]}</Text></View>}
+                  </View>
                   <Text style={s.cardS}>@{f.username}</Text>
                   <View style={s.miniRow}>
-                    <Mini label="💬 Chat" onPress={() => openDm(f)} />
+                    <Mini label={'💬 Chat' + (unread[f.chatId] ? '  (' + unread[f.chatId] + ' new)' : '')} onPress={() => openDm(f)} />
                     <Mini label={t('remove')} onPress={() => removeCloudFriend(f)} />
                   </View>
                 </View>
@@ -1622,10 +1754,10 @@ export default function App() {
         {screen === 'dm' && dmFriend && (subtle ? (<>
           <View style={s.dmHead}>
             <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} />
-            <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+            <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0, flex: 1 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+            {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
           </View>
           <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar NexAmore screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
-          <View style={s.miniRow}>{!!dmShared && <Mini label={t('videoCall')} onPress={startDmCall} />}</View>
           <ScrollView ref={dmScrollRef} style={s.msgBox} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
             {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
             {dmVisible.map((m) => {
@@ -1680,6 +1812,10 @@ export default function App() {
             <View style={s.setRow}>
               <Text style={[s.sm, { marginRight: 12 }]}>{t('notifications')}</Text>
               <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} />
+            </View>
+            <Text style={s.sm}>🌐 Language</Text>
+            <View style={s.miniRow}>
+              {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => changeLang(l[0])} />)}
             </View>
             <Btn label={t('logout')} onPress={logout} />
             {!showClearConfirm ? <Btn label={t('clearData')} onPress={() => setShowClearConfirm(true)} /> : (<>
@@ -1745,7 +1881,7 @@ const s = StyleSheet.create({
   mine: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   theirs: { alignSelf: 'flex-start', backgroundColor: '#ffffff18', borderBottomLeftRadius: 4 },
   selBubble: { borderWidth: 2, borderColor: '#fff' },
-  dmHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  dmHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, width: '100%', paddingHorizontal: 12 },
   sendRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 8 },
   msgInput: { flex: 1, backgroundColor: '#ffffff18', borderRadius: 22, paddingVertical: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, marginRight: 8 },
   attachBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff18', marginRight: 6 },
@@ -1754,4 +1890,6 @@ const s = StyleSheet.create({
   card: { backgroundColor: '#ffffff12', borderRadius: 14, padding: 14, marginVertical: 6, borderWidth: 1 },
   cardT: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
+  badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
 });
