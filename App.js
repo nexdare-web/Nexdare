@@ -230,7 +230,7 @@ const decryptText = async (aes, m) => {
 const translations = {
   en: {
     welcome: 'WELCOME', start: '💘 Start', createRoom: '✦ Create a Room', joinRoom: '✦ Join a Room',
-    next: 'Next ›', back: '‹ Back', chat: '💬 Private Chat',
+    next: 'Next ›', back: '‹ Back', chat: '👥 Group Chat',
     roomCode: 'Room code:', waitingPartner: 'Send this code to your partner, waiting...',
     youAre: 'You are', chooseSide: 'Choose your side 🪙', flip: 'Flip the coin!',
     result: 'Result:', firstAsk: 'will ask the first question 🎉', startBattle: 'Start Battle!',
@@ -243,7 +243,7 @@ const translations = {
     endGame: 'End Game', gameOver: 'Game Over 🏁', won: 'won! 🏆', draw: 'Draw! 🤝',
     newGame: 'New Game', join: 'Join', roomNotFound: 'Room not found, check code', roomFull: 'Room is full',
     encrypted: '🔒 encrypted', encryptionPending: '⏳ encryption setting up...', needBrowser: 'browser required',
-    clearData: '🗑️ Clear Data', profile: '👤 Profile', friends: '👥 NexAmore ♡', settings: '⚙️ Settings',
+    clearData: '🗑️ Clear Data', profile: '👤 Profile', friends: '💌 Message', settings: '⚙️ Settings',
     save: 'Save', name: 'Name', bio: 'Bio', avatar: 'Avatar emoji',
     noFriends: 'No friends yet', remove: 'Remove', sound: 'Sound Effects', notifications: 'Notifications',
     clearConfirm: 'Clear all local data? This cannot be undone.', yesClear: 'Yes, Clear', cancel: 'Cancel',
@@ -428,7 +428,7 @@ dares.push(
 
 translations.hi = { ...translations.en,
   welcome: 'स्वागत है', start: '💘 शुरू करें', createRoom: '✦ रूम बनाएं', joinRoom: '✦ रूम जॉइन करें',
-  next: 'अगला ›', back: '‹ वापस', chat: '💬 प्राइवेट चैट', profile: '👤 प्रोफाइल', settings: '⚙️ सेटिंग्स',
+  next: 'अगला ›', back: '‹ वापस', chat: '👥 ग्रुप चैट', profile: '👤 प्रोफाइल', settings: '⚙️ सेटिंग्स',
   send: 'भेजो 🚀', truth: 'ट्रुथ 💭', dare: 'डेयर 😈', customQ: '📝 अपना सवाल लिखो',
   donePlus: 'कर दिया / बता दिया (+1) ✅', failedMinus: 'नहीं कर पाया (-1) ❌', endGame: 'गेम खत्म', newGame: 'नया गेम',
   join: 'जॉइन', msgPlaceholder: 'मैसेज लिखो...', you: 'तुम', partner: 'पार्टनर', save: 'सेव', logout: '🚪 लॉगआउट',
@@ -437,7 +437,7 @@ translations.hi = { ...translations.en,
 };
 translations.es = { ...translations.en,
   welcome: 'BIENVENIDO', start: '💘 Empezar', createRoom: '✦ Crear sala', joinRoom: '✦ Unirse a sala',
-  next: 'Siguiente ›', back: '‹ Atrás', chat: '💬 Chat privado', profile: '👤 Perfil', settings: '⚙️ Ajustes',
+  next: 'Siguiente ›', back: '‹ Atrás', chat: '👥 Chat de grupo', profile: '👤 Perfil', settings: '⚙️ Ajustes',
   send: 'Enviar 🚀', truth: 'Verdad 💭', dare: 'Reto 😈', customQ: '📝 Escribe la tuya',
   donePlus: 'Hecho / Dicho (+1) ✅', failedMinus: 'No pudo (-1) ❌', endGame: 'Terminar juego', newGame: 'Nuevo juego',
   join: 'Unirse', msgPlaceholder: 'Escribe un mensaje...', you: 'Tú', partner: 'Pareja', save: 'Guardar', logout: '🚪 Cerrar sesión',
@@ -446,7 +446,7 @@ translations.es = { ...translations.en,
 };
 translations.fr = { ...translations.en,
   welcome: 'BIENVENUE', start: '💘 Commencer', createRoom: '✦ Créer une salle', joinRoom: '✦ Rejoindre une salle',
-  next: 'Suivant ›', back: '‹ Retour', chat: '💬 Chat privé', profile: '👤 Profil', settings: '⚙️ Paramètres',
+  next: 'Suivant ›', back: '‹ Retour', chat: '👥 Chat de groupe', profile: '👤 Profil', settings: '⚙️ Paramètres',
   send: 'Envoyer 🚀', truth: 'Vérité 💭', dare: 'Défi 😈', customQ: '📝 Écris la tienne',
   donePlus: 'Fait / Dit (+1) ✅', failedMinus: "N'a pas pu (-1) ❌", endGame: 'Terminer la partie', newGame: 'Nouvelle partie',
   join: 'Rejoindre', msgPlaceholder: 'Écris un message...', you: 'Toi', partner: 'Partenaire', save: 'Enregistrer', logout: '🚪 Déconnexion',
@@ -464,7 +464,7 @@ const LANGS = [
 const autoCache = {};
 const autoTranslate = async (code) => {
   try {
-    const saved = localStorage.getItem('nexdare_tr_' + code);
+    const saved = localStorage.getItem('nexdare_tr2_' + code);
     if (saved) { autoCache[code] = JSON.parse(saved); return; }
     const keys = Object.keys(translations.en);
     const out = {};
@@ -477,11 +477,36 @@ const autoTranslate = async (code) => {
       if (parts.length === chunk.length) chunk.forEach((k, j) => { out[k] = parts[j].trim(); });
     }
     autoCache[code] = out;
-    localStorage.setItem('nexdare_tr_' + code, JSON.stringify(out));
+    localStorage.setItem('nexdare_tr2_' + code, JSON.stringify(out));
   } catch (e) { autoCache[code] = {}; }
 };
 
 // ===== EXTRA END =====
+
+// ===== GROUP CHAT HELPERS =====
+const groupIdOf = async (code) => hex(await subtle.digest('SHA-256', enc8('nexdare-gid:' + code))).slice(0, 24);
+const groupKeyOf = async (code) => {
+  const base = await subtle.importKey('raw', enc8(code), 'PBKDF2', false, ['deriveKey']);
+  return subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc8('nexdare-group-v1'), iterations: 100000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+};
+const newGroupCode = () => {
+  const a = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(a).map((x) => 'abcdefghjkmnpqrstuvwxyz23456789'[x % 31]).join('');
+};
+const fmtListTime = (t) => {
+  if (!t) return '';
+  const d = new Date(t);
+  const now = new Date();
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  if (diff <= 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString();
+};
+// ===== GROUP CHAT HELPERS END =====
 
 export default function App() {
   const [page, setPage] = useState(1);
@@ -558,6 +583,29 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [recording, setRecording] = useState(false);
   const [unread, setUnread] = useState({});
+  const [groupList, setGroupList] = useState({});
+  const [grp, setGrp] = useState(null);
+  const [grpKey, setGrpKey] = useState(null);
+  const [grpRaw, setGrpRaw] = useState({});
+  const [grpPlain, setGrpPlain] = useState([]);
+  const [grpMembers, setGrpMembers] = useState({});
+  const [grpMeta, setGrpMeta] = useState(undefined);
+  const [grpText, setGrpText] = useState('');
+  const [grpSel, setGrpSel] = useState(null);
+  const [grpEditing, setGrpEditing] = useState(null);
+  const [grpHidden, setGrpHidden] = useState([]);
+  const [grpInfo, setGrpInfo] = useState(false);
+  const [grpConfirm, setGrpConfirm] = useState('');
+  const [grpNewName, setGrpNewName] = useState('');
+  const [grpJoinCode, setGrpJoinCode] = useState('');
+  const [previews, setPreviews] = useState({});
+  const [pics, setPics] = useState({});
+  const [friendMenu, setFriendMenu] = useState(null);
+  const lastGrp = useRef('');
+  const grpScrollRef = useRef(null);
+  const grpCount = useRef(-1);
+  const peerCache = useRef({});
+  const previewKey = useRef({});
 
   const [uiLang, setUiLang] = useState(localStorage.getItem('nexdare_lang') || 'en');
   const [, bump] = useState(0);
@@ -1181,13 +1229,14 @@ export default function App() {
           const cnt = inThis ? 0 : arr.filter((x) => x.from !== currentUser.uid && x.t > mySeen).length;
           setUnread((u) => (u[f.chatId] === cnt ? u : { ...u, [f.chatId]: cnt }));
           const m = arr.length ? arr.reduce((a, b) => (b.t > a.t ? b : a)) : null;
+          if (m) await updatePreview(f, m);
           if (!m) { if (lastNotif.current[f.chatId] === undefined) lastNotif.current[f.chatId] = 0; continue; }
           const prev = lastNotif.current[f.chatId];
           lastNotif.current[f.chatId] = m.t;
           if (prev !== undefined && m.t > prev && m.from !== currentUser.uid) {
             playSound('msg', soundOn);
             const hiddenTab = typeof document !== 'undefined' && document.hidden;
-            if (hiddenTab || !(dmFriend && dmFriend.chatId === f.chatId)) showNotif('NexAmore ♡', (f.name || f.username) + ' ne message bheja 💌', notifOn);
+            if (hiddenTab || !(dmFriend && dmFriend.chatId === f.chatId)) showNotif('Message 💌', (f.name || f.username) + ' ne message bheja 💌', notifOn);
           }
         } catch (e) {}
       }
@@ -1382,7 +1431,7 @@ export default function App() {
     try {
       ['nexdare_id_v1', 'nexdare_profile', 'nexdare_sound', 'nexdare_notif', 'nexdare_user', 'nexdare_skin', 'nexdare_myphoto', 'nexdare_bgphoto'].forEach((k) => localStorage.removeItem(k));
       clearAuthTokens();
-      Object.keys(localStorage).forEach((k) => { if (k.startsWith('nexdare_hidden_') || k.startsWith('nexdare_dmhidden_')) localStorage.removeItem(k); });
+      Object.keys(localStorage).forEach((k) => { if (k.startsWith('nexdare_hidden_') || k.startsWith('nexdare_dmhidden_') || k.startsWith('nexdare_grphidden_')) localStorage.removeItem(k); });
       sessionIdentity = null;
       setProfile({ name: '', bio: '', avatar: '😎' });
       setSkin(''); setMyPhoto(''); setBgPhoto('');
@@ -1395,13 +1444,202 @@ export default function App() {
     const perm = await Notification.requestPermission();
     const on = perm === 'granted';
     setNotifOn(on); localStorage.setItem('nexdare_notif', on ? '1' : '0');
-    if (on) showNotif('NexAmore ♡', 'Notifications ON ho gayi!', true);
+    if (on) showNotif('Message 💌', 'Notifications ON ho gayi!', true);
   };
+
+  // ===== GROUP CHAT + CHAT LIST PREVIEW =====
+  const updatePreview = async (f, m) => {
+    if (!subtle) return;
+    try {
+      const idn = await loadIdentity();
+      let pc = peerCache.current[f.uid];
+      if (!pc) {
+        const prof = await call('GET', 'profiles/' + f.uid);
+        if (!prof || !prof.pub) return;
+        const sh = await deriveShared(idn.priv, prof.pub);
+        pc = { aes: sh.aes, photo: prof.photo || '' };
+        peerCache.current[f.uid] = pc;
+        if (pc.photo) setPics((p) => ({ ...p, [f.uid]: pc.photo }));
+      }
+      const key = m.t + ':' + m.ct;
+      if (previewKey.current[f.chatId] === key) return;
+      previewKey.current[f.chatId] = key;
+      const text = await decryptText(pc.aes, m);
+      let shown = text === null ? '🔒 Message' : text;
+      if (text && text.indexOf('{"__f":1') === 0) {
+        try {
+          const j = JSON.parse(text);
+          shown = (j.type || '').indexOf('image/') === 0 ? '📷 Photo' : (j.type || '').indexOf('audio/') === 0 ? '🎤 Voice note' : '📎 ' + (j.name || 'File');
+        } catch (e) {}
+      }
+      setPreviews((p) => ({ ...p, [f.chatId]: { text: shown, t: m.t, mine: m.from === currentUser.uid } }));
+    } catch (e) {}
+  };
+
+  const myDisplayName = () => (profile.name || (currentUser && (currentUser.name || currentUser.username)) || 'Me');
+  const memberObj = () => ({ name: myDisplayName(), avatar: (profile.avatar || (currentUser && currentUser.avatar) || '😎'), t: Date.now() });
+
+  const enterGroup = async (code, nameHint) => {
+    const gid = await groupIdOf(code);
+    const aes = await groupKeyOf(code);
+    setGrpRaw({}); setGrpPlain([]); setGrpMembers({}); setGrpMeta(undefined); setGrpSel(null); setGrpEditing(null);
+    setGrpText(''); setGrpInfo(false); setGrpConfirm(''); lastGrp.current = ''; grpCount.current = -1;
+    let h = [];
+    try { h = JSON.parse(localStorage.getItem('nexdare_grphidden_' + gid)) || []; } catch (e) {}
+    setGrpHidden(h);
+    setGrpKey(aes);
+    setGrp({ gid, code, name: nameHint || 'Group' });
+    setError(''); setNotice('');
+  };
+  const createGroup = async () => {
+    const name = grpNewName.trim();
+    if (!name) { setError('Group ka naam likho'); return; }
+    if (!subtle || !currentUser) { setError('Group chat ke liye browser chahiye'); return; }
+    setError(''); setNotice('');
+    try {
+      const code = newGroupCode();
+      const gid = await groupIdOf(code);
+      const aes = await groupKeyOf(code);
+      const encName = await encryptText(aes, name);
+      await set(ref(db, 'groups/' + gid + '/meta'), { n: encName, owner: currentUser.uid, created: Date.now() });
+      await set(ref(db, 'groups/' + gid + '/members/' + currentUser.uid), memberObj());
+      await set(ref(db, 'userGroups/' + currentUser.uid + '/' + gid), { code, name, t: Date.now() });
+      setGrpNewName('');
+      await enterGroup(code, name);
+      setGrpInfo(true);
+    } catch (e) { setError('Group nahi bana: ' + e.message); }
+  };
+  const joinGroup = async () => {
+    const code = grpJoinCode.trim().toLowerCase().replace(/[\s-]/g, '');
+    if (!code) { setError('Group code likho'); return; }
+    if (!subtle || !currentUser) { setError('Group chat ke liye browser chahiye'); return; }
+    setError(''); setNotice('');
+    try {
+      const gid = await groupIdOf(code);
+      const snap = await get(ref(db, 'groups/' + gid + '/meta'));
+      if (!snap.exists()) { setError('Group nahi mila, code check karo'); return; }
+      const aes = await groupKeyOf(code);
+      const nm = (await decryptText(aes, snap.val().n)) || 'Group';
+      await set(ref(db, 'groups/' + gid + '/members/' + currentUser.uid), memberObj());
+      await set(ref(db, 'userGroups/' + currentUser.uid + '/' + gid), { code, name: nm, t: Date.now() });
+      setGrpJoinCode('');
+      await enterGroup(code, nm);
+    } catch (e) { setError('Join nahi hua: ' + e.message); }
+  };
+  const openGroup = (g) => { enterGroup(g.code, g.name).catch((e) => setError('Error: ' + e.message)); };
+  const closeGroup = () => {
+    setGrp(null); setGrpKey(null); setGrpRaw({}); setGrpPlain([]); setGrpMembers({}); setGrpMeta(undefined);
+    setGrpSel(null); setGrpEditing(null); setGrpText(''); setGrpInfo(false); setGrpConfirm(''); lastGrp.current = '';
+    setError(''); setNotice('');
+  };
+  const leaveGroupForever = async () => {
+    if (grpConfirm !== 'leave') { setGrpConfirm('leave'); return; }
+    try {
+      await remove(ref(db, 'groups/' + grp.gid + '/members/' + currentUser.uid));
+      await remove(ref(db, 'userGroups/' + currentUser.uid + '/' + grp.gid));
+    } catch (e) { setError('Error: ' + e.message); return; }
+    closeGroup();
+  };
+  const removeGroupFromList = async (g) => {
+    try {
+      const gid = await groupIdOf(g.code);
+      await remove(ref(db, 'groups/' + gid + '/members/' + currentUser.uid)).catch(() => {});
+      await remove(ref(db, 'userGroups/' + currentUser.uid + '/' + gid));
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const deleteGroupForAll = async () => {
+    if (grpConfirm !== 'del') { setGrpConfirm('del'); return; }
+    try {
+      await remove(ref(db, 'groups/' + grp.gid));
+      await remove(ref(db, 'userGroups/' + currentUser.uid + '/' + grp.gid));
+    } catch (e) { setError('Delete nahi hua: ' + e.message); return; }
+    closeGroup();
+  };
+  const sendGrp = async () => {
+    const text = grpText.trim();
+    if (!text || !grp || !grpKey || !currentUser) return;
+    setGrpText(''); setNotice('');
+    try {
+      const enc = await encryptText(grpKey, JSON.stringify({ n: myDisplayName(), x: text }));
+      if (grpEditing) {
+        await update(ref(db, 'groups/' + grp.gid + '/messages/' + grpEditing), { iv: enc.iv, ct: enc.ct, edited: true });
+        setGrpEditing(null);
+      } else {
+        await push(ref(db, 'groups/' + grp.gid + '/messages'), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
+      }
+      playSound('click', soundOn);
+    } catch (e) { setError('Message nahi gaya: ' + e.message); }
+  };
+  const grpStartEdit = () => {
+    if (!grpSel || grpSel.from !== currentUser.uid) return;
+    setGrpEditing(grpSel.key); setGrpText(grpSel.text); setGrpSel(null);
+  };
+  const grpDeleteForMe = () => {
+    if (!grpSel || !grp) return;
+    const h = [...grpHidden, grpSel.key]; setGrpHidden(h);
+    try { localStorage.setItem('nexdare_grphidden_' + grp.gid, JSON.stringify(h)); } catch (e) {}
+    setGrpSel(null);
+  };
+  const grpDeleteForAll = async () => {
+    if (!grpSel || !grp || grpSel.from !== currentUser.uid) return;
+    try { await remove(ref(db, 'groups/' + grp.gid + '/messages/' + grpSel.key)); } catch (e) { setError('Delete nahi hua: ' + e.message); }
+    setGrpSel(null);
+  };
+  const shareGroupCode = async () => {
+    if (!grp) return;
+    const msg = 'Nexdare pe mere group "' + grp.name + '" me join karo! Group code: ' + grp.code + '  (https://nexdare-web.vercel.app)';
+    try { await Share.share({ message: msg }); } catch (e) { copyText(msg); }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !currentUser.username || screen !== 'groups') return;
+    const u = onValue(ref(db, 'userGroups/' + currentUser.uid), (snap) => setGroupList(snap.val() || {}));
+    return () => u();
+  }, [isLoggedIn, currentUser && currentUser.uid, screen]);
+
+  useEffect(() => {
+    if (screen !== 'groups' || !grp) return;
+    const u1 = onValue({ path: 'groups/' + grp.gid + '/messages', query: 'orderBy=%22%24key%22&limitToLast=100' }, (snap) => {
+      const v = snap.val();
+      const str = JSON.stringify(v);
+      if (str !== lastGrp.current) { lastGrp.current = str; setGrpRaw(v || {}); }
+    });
+    const u2 = onValue(ref(db, 'groups/' + grp.gid + '/members'), (snap) => setGrpMembers(snap.val() || {}));
+    const u3 = onValue(ref(db, 'groups/' + grp.gid + '/meta'), (snap) => setGrpMeta(snap.val()));
+    return () => { u1(); u2(); u3(); };
+  }, [screen, grp && grp.gid]);
+
+  useEffect(() => {
+    if (!grpKey) { setGrpPlain([]); return; }
+    let cancelled = false;
+    (async () => {
+      const list = Object.keys(grpRaw).map((k) => ({ key: k, ...grpRaw[k] }));
+      list.sort((a, b) => a.t - b.t);
+      const out = [];
+      for (const m of list) {
+        const txt = await decryptText(grpKey, m);
+        let name = '?';
+        let text = '🔒 (decrypt nahi ho paya)';
+        if (txt !== null) {
+          try { const j = JSON.parse(txt); name = j.n || '?'; text = j.x; } catch (e) { text = txt; }
+        }
+        out.push({ key: m.key, from: m.from, t: m.t, edited: !!m.edited, name, text });
+      }
+      if (!cancelled) {
+        if (grpCount.current >= 0 && out.length > grpCount.current && out.length && currentUser && out[out.length - 1].from !== currentUser.uid) playSound('msg', soundOn);
+        grpCount.current = out.length;
+        setGrpPlain(out);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [grpKey, grpRaw]);
+  // ===== GROUP CHAT + CHAT LIST PREVIEW END =====
 
   // ===== PART 2 END. Neeche Part 3 paste karo (const Btn se shuru) =====
 
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
+  const grpVisible = grpPlain.filter((m) => !grpHidden.includes(m.key));
   const myId = ident ? ident.sid : null;
   const myUid = currentUser ? currentUser.uid : null;
   const totalUnread = Object.keys(unread).reduce((a, k) => a + (unread[k] || 0), 0);
@@ -1409,7 +1647,7 @@ export default function App() {
   let th = themes.p1;
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
   else if (screen === 'join' || screen === 'room') th = themes.room;
-  else if (screen === 'chat' || screen === 'dm') th = themes.chat;
+  else if (screen === 'chat' || screen === 'dm' || screen === 'groups') th = themes.chat;
   else th = themes.settings;
   if (skin && skins[skin]) th = { ...th, ...skins[skin] };
 
@@ -1437,6 +1675,22 @@ export default function App() {
   const Pic = ({ uri, emoji, size }) => uri
     ? <RNImage source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
     : <Text style={{ fontSize: size * 0.8 }}>{emoji}</Text>;
+  const chatRow = ({ rowKey, uri, emoji, title, sub, time, badge, onPress, onMore }) => (
+    <TouchableOpacity key={rowKey} activeOpacity={0.6} style={s.chatRow} onPress={onPress} onLongPress={onMore}>
+      <View style={s.avWrap}><Pic uri={uri} emoji={emoji} size={52} /></View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text numberOfLines={1} style={s.rowTitle}>{title}</Text>
+          {!!time && <Text style={[s.rowTime, badge ? { color: '#25d366' } : null]}>{time}</Text>}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+          <Text numberOfLines={1} style={s.rowSub}>{sub}</Text>
+          {!!badge && <View style={[s.badge, { marginLeft: 8 }]}><Text style={s.badgeT}>{badge >= 20 ? '20+' : badge}</Text></View>}
+        </View>
+      </View>
+      {!!onMore && <TouchableOpacity onPress={onMore} style={{ paddingHorizontal: 8, paddingVertical: 6 }}><Text style={[s.rowTime, { fontSize: 20 }]}>⋮</Text></TouchableOpacity>}
+    </TouchableOpacity>
+  );
   const isImg = (f) => f && f.type && f.type.indexOf('image/') === 0;
   const isAud = (f) => f && f.type && f.type.indexOf('audio/') === 0;
 
@@ -1520,7 +1774,7 @@ export default function App() {
     </>);
   };
 
-  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), style: 'Nexstyle ♡', settings: t('settings') };
+  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', style: 'Nexstyle ♡', settings: t('settings') };
   const title = screen === 'home' ? (page === 1 ? null : page === 2 ? 'Let the battle begin' : 'Make it special') : titles[screen] || (screen === 'join' ? 'Join' : null);
   const inChat = screen === 'chat' && !!chatCode;
   const inDm = screen === 'dm';
@@ -1528,7 +1782,7 @@ export default function App() {
   const needUsername = isLoggedIn && !!currentUser && !currentUser.username;
   const friendSeen = dmFriend ? (dmSeen[dmFriend.uid] || 0) : 0;
   const partnerName = chatData && chatData.names && ident ? (Object.keys(chatData.names).filter((k) => k !== ident.sid).map((k) => chatData.names[k])[0] || t('partner')) : t('partner');
-  const full = inChat || inDm || inGame || ['profile', 'friends', 'style', 'settings'].includes(screen);
+  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings'].includes(screen);
   const sc = { alignItems: 'center', paddingBottom: 40, width: '100%' };
   const PH = '#ffffff88';
 
@@ -1602,7 +1856,7 @@ export default function App() {
         </>)}
 
         {screen === 'home' && page === 3 && (<>
-          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('chat'); }} />
+          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
           <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
           <Btn label="🎨 Nexstyle ♡" onPress={() => setScreen('style')} />
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
@@ -1731,25 +1985,129 @@ export default function App() {
               })}
             </>)}
             <Text style={[s.q, { color: th.accent2 }]}>{t('friends')}</Text>
-            {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : Object.keys(cloudFriends).map((k) => {
-              const f = cloudFriends[k];
-              return (
-                <View key={k} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={[s.cardT, { color: th.accent2, flex: 1 }]}>{(f.avatar || '😎') + ' ' + (f.name || f.username)}</Text>
-                    {!!unread[f.chatId] && <View style={s.badge}><Text style={s.badgeT}>{unread[f.chatId] >= 20 ? '20+' : unread[f.chatId]}</Text></View>}
-                  </View>
-                  <Text style={s.cardS}>@{f.username}</Text>
-                  <View style={s.miniRow}>
-                    <Mini label={'💬 Chat' + (unread[f.chatId] ? '  (' + unread[f.chatId] + ' new)' : '')} onPress={() => openDm(f)} />
-                    <Mini label={t('remove')} onPress={() => removeCloudFriend(f)} />
-                  </View>
-                </View>
-              );
-            })}
+            {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : (
+              <View style={{ width: '100%' }}>
+                {Object.keys(cloudFriends).map((k) => cloudFriends[k])
+                  .sort((a, b) => ((previews[b.chatId] && previews[b.chatId].t) || 0) - ((previews[a.chatId] && previews[a.chatId].t) || 0))
+                  .map((f) => {
+                    const pv = previews[f.chatId];
+                    const un = unread[f.chatId] || 0;
+                    return (
+                      <View key={f.uid}>
+                        {chatRow({
+                          rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username,
+                          sub: pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
+                          time: pv ? fmtListTime(pv.t) : '', badge: un,
+                          onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
+                        })}
+                        {friendMenu === f.uid && (
+                          <View style={s.miniRow}>
+                            <Mini label={t('remove')} onPress={() => { setFriendMenu(null); removeCloudFriend(f); }} />
+                            <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+              </View>
+            )}
             <Nav label={t('back')} onPress={() => setScreen('home')} />
           </ScrollView>
         )}
+
+        {screen === 'groups' && !grp && (subtle ? (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>Group Chat 👥</Text>
+            <TextInput style={s.i} placeholder="Naye group ka naam" placeholderTextColor={PH} value={grpNewName} onChangeText={setGrpNewName} />
+            <Btn label="➕ Group banao" onPress={createGroup} />
+            <TextInput style={s.i} placeholder="Group code" placeholderTextColor={PH} autoCapitalize="none" value={grpJoinCode} onChangeText={setGrpJoinCode} />
+            <Btn label="🔑 Group join karo" onPress={joinGroup} />
+            <Text style={[s.q, { color: th.accent2 }]}>Mere groups</Text>
+            {Object.keys(groupList).length === 0 ? <Text style={s.sm}>Abhi koi group nahi. Naya banao ya code se join karo.</Text> : (
+              <View style={{ width: '100%' }}>
+                {Object.keys(groupList).map((k) => ({ ...groupList[k], gid: k })).sort((a, b) => (b.t || 0) - (a.t || 0)).map((g) => (
+                  <View key={g.gid}>
+                    {chatRow({
+                      rowKey: g.gid, emoji: '👥', title: g.name, sub: 'Tap karke chat kholo',
+                      onPress: () => openGroup(g), onMore: () => setFriendMenu(friendMenu === g.gid ? null : g.gid),
+                    })}
+                    {friendMenu === g.gid && (
+                      <View style={s.miniRow}>
+                        <Mini label="🚪 Group chhodo" onPress={() => { setFriendMenu(null); removeGroupFromList(g); }} />
+                        <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+            <Nav label={t('back')} onPress={backToTools} />
+          </ScrollView>
+        ) : (<>
+          <Text style={s.sm}>{t('needBrowserChat')}</Text>
+          <Nav label={t('back')} onPress={backToTools} />
+        </>))}
+
+        {screen === 'groups' && !!grp && (grpMeta === null ? (<>
+          <Text style={s.sm}>Ye group delete ho chuka hai.</Text>
+          <Nav label={t('back')} onPress={closeGroup} />
+        </>) : (<>
+          <View style={s.dmHead}>
+            <View style={s.avWrap}><Text style={{ fontSize: 26 }}>👥</Text></View>
+            <TouchableOpacity style={{ flex: 1, marginLeft: 10 }} onPress={() => { setGrpInfo(!grpInfo); setGrpConfirm(''); }}>
+              <Text numberOfLines={1} style={[s.code2, { color: th.accent2, marginBottom: 0, fontSize: 20 }]}>{grp.name}</Text>
+              <Text style={s.cardS}>{Object.keys(grpMembers).length} members • info ke liye tap karo</Text>
+            </TouchableOpacity>
+          </View>
+          {grpInfo && (
+            <View style={[s.card, { borderColor: th.accent + '55', width: '92%' }]}>
+              <Text style={s.cardS}>Group code (dost isse join karenge):</Text>
+              <Text style={[s.code2, { color: th.accent2 }]}>{grp.code}</Text>
+              <View style={s.miniRow}>
+                <Mini label="📋 Code copy" onPress={() => copyText(grp.code)} />
+                <Mini label="📤 Share" onPress={shareGroupCode} />
+              </View>
+              <Text style={[s.cardT, { color: th.accent2 }]}>Members</Text>
+              {Object.keys(grpMembers).map((uid) => (
+                <Text key={uid} style={s.cardS}>{(grpMembers[uid].avatar || '😎') + ' ' + grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '')}</Text>
+              ))}
+              <View style={s.miniRow}>
+                <Mini label={grpConfirm === 'leave' ? 'Pakka chhodna hai?' : '🚪 Group chhodo'} onPress={leaveGroupForever} />
+                {!!grpMeta && grpMeta.owner === myUid && <Mini label={grpConfirm === 'del' ? 'Pakka delete?' : '🗑️ Group delete'} onPress={deleteGroupForAll} />}
+              </View>
+            </View>
+          )}
+          <Text style={s.sm}>🔒 End-to-end encrypted • sirf code wale padh sakte hain</Text>
+          <ScrollView ref={grpScrollRef} style={s.msgBox} onContentSizeChange={() => grpScrollRef.current && grpScrollRef.current.scrollToEnd({ animated: true })}>
+            {grpVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
+            {grpVisible.map((m) => {
+              const mine = myUid && m.from === myUid;
+              const sel = grpSel && grpSel.key === m.key;
+              return (
+                <TouchableOpacity key={m.key} onPress={() => setGrpSel(sel ? null : m)}
+                  style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
+                  <Text style={s.bname}>{mine ? t('you') : m.name}</Text>
+                  <Text style={s.btext}>{m.text}</Text>
+                  <Text style={s.tick}>{m.edited ? 'edited  ' : ''}{fmtListTime(m.t)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {!!grpSel && (
+            <View style={s.miniRow}>
+              {grpSel.from === myUid && <Mini label="✏️ Edit" onPress={grpStartEdit} />}
+              <Mini label={t('deleteForMe')} onPress={grpDeleteForMe} />
+              {grpSel.from === myUid && <Mini label={t('deleteForAll')} onPress={grpDeleteForAll} />}
+              <Mini label={t('cancel')} onPress={() => setGrpSel(null)} />
+            </View>
+          )}
+          {!!grpEditing && <Text style={s.sm}>✏️ Message edit ho raha hai <Text onPress={() => { setGrpEditing(null); setGrpText(''); }}> (cancel)</Text></Text>}
+          <View style={s.sendRow}>
+            <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={grpText} onChangeText={setGrpText} onSubmitEditing={sendGrp} />
+            <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendGrp}><Text style={s.bt}>{grpEditing ? '✓' : '➤'}</Text></TouchableOpacity>
+          </View>
+          <Nav label={t('back')} onPress={closeGroup} />
+        </>))}
 
         {screen === 'dm' && dmFriend && (subtle ? (<>
           <View style={s.dmHead}>
@@ -1757,7 +2115,7 @@ export default function App() {
             <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0, flex: 1 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
             {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
           </View>
-          <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar NexAmore screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
+          <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar Message screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
           <ScrollView ref={dmScrollRef} style={s.msgBox} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
             {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
             {dmVisible.map((m) => {
@@ -1892,4 +2250,9 @@ const s = StyleSheet.create({
   cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
   badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  chatRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
+  avWrap: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#ffffff1f', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  rowTitle: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700' },
+  rowTime: { color: '#ffffff99', fontSize: 12, marginLeft: 8 },
+  rowSub: { flex: 1, color: '#ffffffaa', fontSize: 14 },
 });
