@@ -2,36 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
 
-  <title>NexDare – Truth or Dare Game</title>
+  <title>NexDare – Truth or Dare, Private Chats & Games</title>
 
-  <meta name="description" content="Play NexDare, an exciting Truth and Dare game with friends. Enjoy fun challenges, truth questions and unforgettable moments.">
+  <meta name="description" content="Play NexDare, an exciting Truth or Dare game with friends. Enjoy private chats with secret codes, new codes for every conversation, auto-closing chats, group chats, Couple Space, fun games and your own profile.">
 
-  <meta name="keywords" content="NexDare, Truth or Dare, Truth Dare Game, Play with Friends">
+  <meta name="keywords" content="NexDare, Truth or Dare, Private Chats, Secret Code Chat, Couple Space, Group Chats, Games with Friends">
 
   <meta name="robots" content="index, follow">
 
-  <link rel="canonical" href="https://nexdare-web.vercel.app/">   <link rel="manifest" href="/manifest.json" />
+  <link rel="canonical" href="https://nexdare-web.vercel.app/">
+  <link rel="manifest" href="/manifest.json" />
+
   <meta name="theme-color" content="#0b0014" />
+
+  <!-- NexDare Logo -->
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="NexDare" />
+
+  <!-- Google Site Name -->
+  <meta property="og:site_name" content="NexDare" />
+  <meta property="og:title" content="NexDare – Truth or Dare, Private Chats & Games" />
+  <meta property="og:description" content="Play Truth or Dare, enjoy private chats with secret codes, group chats, Couple Space, games and more with NexDare." />
+  <meta property="og:url" content="https://nexdare-web.vercel.app/" />
+  <meta property="og:type" content="website" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="NexDare – Truth or Dare, Private Chats & Games" />
+  <meta name="twitter:description" content="Play Truth or Dare, enjoy private chats, group chats, Couple Space, games and more with NexDare." />
+
+  <!-- Website Identity -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "NexDare",
+    "alternateName": "Nexdare",
+    "url": "https://nexdare-web.vercel.app/"
+  }
+  </script>
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js');
       });
     }
-  </script>   <style>
-    html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #0b0014; }
-    #root { display: flex; position: relative; width: 100%; height: 100%; flex: 1; overflow: hidden; }
-  </style>   <meta property="og:site_name" content="NexDare" />
-  <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"WebSite","name":"NexDare","alternateName":"Nexdare","url":"https://nexdare-web.vercel.app/"}
   </script>
+
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #0b0014;
+    }
+
+    #root {
+      display: flex;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      overflow: hidden;
+    }
+  </style>
 </head>
+
 <body>
   <div id="root"></div>
   <script src="/_expo/static/js/web/index.js"></script>
