@@ -94,11 +94,26 @@ const get = async (r) => {
 };
 const onValue = (r, cb) => {
   let stopped = false;
+  let inFlight = false;
+  let hasLastValue = false;
+  let lastSerialized = '';
   const poll = async () => {
+    if (stopped || inFlight) return;
+    inFlight = true;
     try {
       const val = await call('GET', r.path, undefined, r.query);
-      if (!stopped) cb({ val: () => val });
-    } catch (e) {}
+      if (stopped) return;
+      const serialized = JSON.stringify(val);
+      // Match Firebase onValue behavior: notify React only when data changes.
+      if (!hasLastValue || serialized !== lastSerialized) {
+        hasLastValue = true;
+        lastSerialized = serialized;
+        cb({ val: () => val });
+      }
+    } catch (e) {
+    } finally {
+      inFlight = false;
+    }
   };
   listeners.add(poll);
   poll();
@@ -905,7 +920,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2200);
+    const timer = setTimeout(() => setShowSplash(false), 1300);
     return () => clearTimeout(timer);
   }, []);
   const [role, setRole] = useState(null);
@@ -3921,7 +3936,7 @@ export default function App() {
           }}
         >
           <RNImage
-            source={{ uri: '/nexdare splash preview.png' }}
+            source={{ uri: 'https://nexdare-web.vercel.app/nexdare%20splash%20preview.png' }}
             style={{ width: 280, height: 120 }}
             resizeMode="contain"
           />
