@@ -797,6 +797,7 @@ export default function App() {
   const [friendMenu, setFriendMenu] = useState(null);
   const [viewer, setViewer] = useState(null);
   const [viewerHd, setViewerHd] = useState('');
+  const [langOpen, setLangOpen] = useState(false);
   const [myPhotoHd, setMyPhotoHd] = useState('');
   const [presMap, setPresMap] = useState({});
   const [showSeen, setShowSeen] = useState(() => { try { return localStorage.getItem('nexdare_showseen') !== '0'; } catch (e) { return true; } });
@@ -3340,10 +3341,12 @@ export default function App() {
               <Text style={[s.sm, { marginRight: 12 }]}>Last seen / online dikhao</Text>
               <Switch value={showSeen} onValueChange={toggleSeen} />
             </View>
-            <Text style={s.sm}>🌐 Language</Text>
-            <View style={s.miniRow}>
-              {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => changeLang(l[0])} />)}
-            </View>
+            <Nav label={'🌐 All languages: ' + ((LANGS.find((l) => l[0] === uiLang) || [0, 'English'])[1]) + (langOpen ? '  ▴' : '  ▾')} onPress={() => setLangOpen(!langOpen)} />
+            {langOpen && (
+              <View style={s.miniRow}>
+                {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => { changeLang(l[0]); setLangOpen(false); }} />)}
+              </View>
+            )}
             <Text style={s.sm}>🛡️ Safety</Text>
             {Object.keys(blocks).length > 0 && (<>
               <Text style={s.sm}>Blocked users:</Text>
