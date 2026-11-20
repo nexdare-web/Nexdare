@@ -729,6 +729,53 @@ const SKINS = {
   amoled: { name: 'Pure Black ⚫', bg: '#000000', accent: '#ff4d8d', accent2: '#ffd1e3', glow: '#ff4d8d', glow2: '#7c5cff', e: ['⚫', '💖', '✨'], wall: { type: 'stars', seed: 77, c1: '#000000', c2: '#05050a', c3: '#000000', c4: '#ffffff' } },
   cosmic: { name: 'Cosmic Love 💫', bg: '#10061f', accent: '#ff5fa2', accent2: '#ffd6ea', glow: '#ff5fa2', glow2: '#7c4dff', e: ['💫', '💞', '✨'], wall: { type: 'hearts', seed: 61, c1: '#12062a', c2: '#3a0f5c', c3: '#10061f', c4: '#ff5fa2', c5: '#b388ff' } },
 };
+// ---- Email OTP (EmailJS) - neeche 3 value apni EmailJS se bharo ----
+const EMAILJS = { service: '', template: '', key: '' };
+const sendOtpMail = async (to, code) => {
+  const r = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service_id: EMAILJS.service, template_id: EMAILJS.template, user_id: EMAILJS.key, template_params: { to_email: to, otp_code: code, app_name: 'Nexdare' } }),
+  });
+  if (!r.ok) throw new Error((await r.text()) || 'mail nahi gayi');
+};
+// ---- Camera filters / stickers ----
+const CAM_FILTERS = [
+  ['Normal', 'none'],
+  ['Warm', 'sepia(0.25) saturate(1.4) hue-rotate(-12deg) brightness(1.05)'],
+  ['Cool', 'saturate(1.2) hue-rotate(15deg) brightness(1.05) contrast(1.05)'],
+  ['Vivid', 'saturate(1.9) contrast(1.15)'],
+  ['B&W', 'grayscale(1) contrast(1.15)'],
+  ['Noir', 'grayscale(1) contrast(1.6) brightness(0.85)'],
+  ['Vintage', 'sepia(0.7) contrast(0.95) brightness(1.05) saturate(1.2)'],
+  ['Fade', 'contrast(0.85) brightness(1.15) saturate(0.8)'],
+  ['Rose', 'sepia(0.3) saturate(1.6) hue-rotate(-35deg) brightness(1.05)'],
+  ['Dreamy', 'brightness(1.15) contrast(0.9) saturate(1.3) blur(0.6px)'],
+  ['Neon', 'saturate(2.4) contrast(1.3) hue-rotate(-20deg) brightness(1.05)'],
+  ['Sunset', 'sepia(0.4) saturate(1.8) hue-rotate(-20deg) contrast(1.1)'],
+];
+const CAM_STICKERS = ['❤️', '😍', '🔥', '✨', '😂', '🥰', '💋', '🌹', '👑', '😎', '🎉', '💘'];
+const camCompose = (cam) => new Promise((res, rej) => {
+  const img = new window.Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    const f = CAM_FILTERS[cam.fi || 0][1];
+    try { if (f !== 'none') ctx.filter = f; } catch (e) {}
+    ctx.drawImage(img, 0, 0);
+    try { ctx.filter = 'none'; } catch (e) {}
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    (cam.stickers || []).forEach((st) => { ctx.font = Math.round(c.width * 0.16) + 'px serif'; ctx.fillText(st.e, st.x * c.width, st.y * c.height); });
+    if (cam.caption) {
+      const h = Math.round(c.width * 0.15); const y = Math.round(c.height * 0.72);
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, y, c.width, h);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(c.width * 0.065) + 'px sans-serif';
+      ctx.fillText(cam.caption, c.width / 2, y + h / 2, c.width * 0.92);
+    }
+    res(c.toDataURL('image/jpeg', 0.88));
+  };
+  img.onerror = () => rej(new Error('Photo process nahi hui'));
+  img.src = cam.raw;
+});
 // ===== GROUP CHAT HELPERS END =====
 
 // ===== GAMES + COUPLE DATA =====
@@ -948,6 +995,19 @@ export default function App() {
   const [viewer, setViewer] = useState(null);
   const [viewerHd, setViewerHd] = useState('');
   const [langOpen, setLangOpen] = useState(false);
+  const [cam, setCam] = useState(null);
+  const camVideo = useRef(null);
+  const camStream = useRef(null);
+  const [deactMap, setDeactMap] = useState({});
+  const [acctMode, setAcctMode] = useState(null);
+  const [acctPass, setAcctPass] = useState('');
+  const [acctCode, setAcctCode] = useState('');
+  const [acctWord, setAcctWord] = useState('');
+  const [acctSent, setAcctSent] = useState(false);
+  const [acctBusy, setAcctBusy] = useState(false);
+  const [acctHasPw, setAcctHasPw] = useState(true);
+  const otpRef = useRef(null);
+  const otpOn = !!(EMAILJS.service && EMAILJS.template && EMAILJS.key);
   const [wallDim, setWallDim] = useState(() => { try { return localStorage.getItem('nexdare_walldim') || 'normal'; } catch (e) { return 'normal'; } });
   const [myPhotoHd, setMyPhotoHd] = useState('');
   const [presMap, setPresMap] = useState({});
@@ -1088,22 +1148,33 @@ export default function App() {
 
   const finishLogin = async (uid, mail, extra, tokens) => {
     if (tokens) setAuthTokens(tokens);
+    let reactivated = false;
+    let cancelledDelete = false;
     let userData = { uid, email: mail, name: profile.name || (extra && extra.name) || '', bio: profile.bio || '', avatar: profile.avatar || '😎', lastLogin: Date.now() };
     try {
       const snap = await get(ref(db, 'users/' + uid));
       if (snap.exists()) userData = { ...userData, ...snap.val(), uid, email: mail, lastLogin: Date.now() };
+      if (userData.deletePending && userData.deleteAt && Date.now() >= userData.deleteAt) {
+        try { await purgeAccount(uid); } catch (e2) {}
+        clearAuthTokens(); setAuthLoading(false); setError('');
+        setNotice('Is account ka 15 din ka delete time poora ho gaya tha, isliye account delete ho gaya.');
+        return;
+      }
+      if (userData.deletePending) { cancelledDelete = true; userData.deletePending = false; delete userData.deleteAt; reactivated = true; }
+      if (userData.deactivated) { userData.deactivated = false; reactivated = true; }
       await set(ref(db, 'users/' + uid), userData);
     } catch (e) {}
     try {
       const ps = await get(ref(db, 'profiles/' + uid));
       if (ps.exists() && ps.val().username) userData.username = ps.val().username;
+      if (reactivated) await update(ref(db, 'profiles/' + uid), { deactivated: false, deleteAt: null });
     } catch (e) {}
     localStorage.setItem('nexdare_user', JSON.stringify(userData));
     setCurrentUser(userData);
     setProfile((prev) => ({ ...prev, name: userData.name || '', bio: userData.bio || '', avatar: userData.avatar || '😎' }));
     setIsLoggedIn(true); setAuthStep('form');
     setPendingToken(''); setPendingEmail(''); setPendingUid(''); setPendingRefresh('');
-    setEmail(''); setPassword(''); setError(''); setNotice('Login successful! 🎉');
+    setEmail(''); setPassword(''); setError(''); setNotice(reactivated ? (cancelledDelete ? 'Welcome back! Account delete cancel ho gaya 💞' : 'Welcome back! Account wapas activate ho gaya 💞') : 'Login successful! 🎉');
     playSound('success', soundOn);
   };
 
@@ -1215,6 +1286,7 @@ export default function App() {
       const snap = await get(ref(db, 'usernames/' + uname));
       if (!snap.exists()) { setError('Ye username nahi mila. Spelling check karo.'); return; }
       const targetUid = snap.val();
+      try { const dp = await call('GET', 'profiles/' + targetUid + '/deactivated'); if (dp) { setError('Ye username nahi mila. Spelling check karo.'); return; } } catch (e) {}
       if (cloudFriends[targetUid]) { setNotice('Ye pehle se aapka friend hai.'); return; }
       if (friendReqs[targetUid]) { setNotice('Unhone aapko request bheji hai. Neeche Accept karo.'); return; }
       await set(ref(db, 'friendReqs/' + targetUid + '/' + currentUser.uid), {
@@ -2155,10 +2227,13 @@ export default function App() {
 
   const loadPres = async (uids) => {
     const out = {};
+    const dout = {};
     for (const u of uids) {
       try { out[u] = (await call('GET', 'presence/' + u)) || null; } catch (e) {}
+      try { dout[u] = !!(await call('GET', 'profiles/' + u + '/deactivated')); } catch (e) {}
     }
     setPresMap((p) => ({ ...p, ...out }));
+    setDeactMap((p) => ({ ...p, ...dout }));
   };
   useEffect(() => {
     if (!isLoggedIn || !currentUser) return;
@@ -2444,6 +2519,151 @@ export default function App() {
     return () => { c = true; };
   }, [palAes, JSON.stringify(notesDoc)]);
 
+  // ---- Snapchat-style camera ----
+  const camBox = () => {
+    const iw = typeof window !== 'undefined' ? window.innerWidth : 360;
+    const ih = typeof window !== 'undefined' ? window.innerHeight : 700;
+    const bw = Math.min(iw, Math.round(ih * 0.58 * 0.75));
+    return { bw, bh: Math.round(bw / 0.75) };
+  };
+  const stopCamStream = () => { if (camStream.current) { camStream.current.getTracks().forEach((tr) => tr.stop()); camStream.current = null; } };
+  const closeCam = () => { stopCamStream(); setCam(null); };
+  const openCamera = (cb) => {
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment');
+      input.onchange = async () => { const f = input.files && input.files[0]; if (f) cb(await readAsDataUrl(f)); };
+      input.click();
+      return;
+    }
+    setCam({ cb, facing: 'environment', raw: null, fi: 0, timer: 0, count: 0, stickers: [], pick: '', caption: '', err: '', busy: false });
+  };
+  useEffect(() => {
+    if (!cam || cam.raw) { stopCamStream(); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        stopCamStream();
+        const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cam.facing, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false });
+        if (cancelled) { st.getTracks().forEach((tr) => tr.stop()); return; }
+        camStream.current = st;
+        if (camVideo.current) { camVideo.current.srcObject = st; const pr = camVideo.current.play(); if (pr && pr.catch) pr.catch(() => {}); }
+      } catch (e) { if (!cancelled) setCam((c) => (c ? { ...c, err: 'Camera nahi khula. Browser me camera permission allow karo.' } : c)); }
+    })();
+    return () => { cancelled = true; };
+  }, [!!cam, cam && cam.facing, cam && !!cam.raw]);
+  useEffect(() => () => stopCamStream(), []);
+  const camGrab = (facing) => {
+    const v = camVideo.current;
+    if (!v || !v.videoWidth) { setCam((c) => (c ? { ...c, err: 'Camera abhi ready nahi hai' } : c)); return; }
+    const vw = v.videoWidth; const vh = v.videoHeight;
+    let sw = vw; let sh = vh; let sx = 0; let sy = 0;
+    if (vw / vh > 0.75) { sw = vh * 0.75; sx = (vw - sw) / 2; } else { sh = vw / 0.75; sy = (vh - sh) / 2; }
+    const ow = Math.min(960, Math.round(sw)); const oh = Math.round(ow / 0.75);
+    const c = document.createElement('canvas'); c.width = ow; c.height = oh;
+    const ctx = c.getContext('2d');
+    if (facing === 'user') { ctx.translate(ow, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, ow, oh);
+    setCam((x) => (x ? { ...x, raw: c.toDataURL('image/jpeg', 0.92), stickers: [], caption: '', pick: '', err: '' } : x));
+  };
+  const camShutter = () => {
+    if (!cam || cam.raw || cam.count) return;
+    const facing = cam.facing;
+    if (!cam.timer) { camGrab(facing); return; }
+    let n = cam.timer;
+    setCam((x) => (x ? { ...x, count: n } : x));
+    const iv = setInterval(() => {
+      n -= 1;
+      if (n <= 0) { clearInterval(iv); setCam((x) => (x ? { ...x, count: 0 } : x)); camGrab(facing); }
+      else setCam((x) => (x ? { ...x, count: n } : x));
+    }, 1000);
+  };
+  const camPlace = (e) => {
+    if (!cam || !cam.raw || !cam.pick) return;
+    const { bw, bh } = camBox();
+    const ne = (e && e.nativeEvent) || {};
+    const x = Math.max(0.06, Math.min(0.94, (ne.locationX != null ? ne.locationX : bw / 2) / bw));
+    const y = Math.max(0.06, Math.min(0.94, (ne.locationY != null ? ne.locationY : bh / 2) / bh));
+    setCam((c) => (c ? { ...c, stickers: [...c.stickers, { e: c.pick, x, y }] } : c));
+  };
+  const camUse = async () => {
+    if (!cam || !cam.raw || cam.busy) return;
+    const snap = cam;
+    setCam((x) => (x ? { ...x, busy: true } : x));
+    try { const du = await camCompose(snap); closeCam(); await snap.cb(du); }
+    catch (e) { setCam((x) => (x ? { ...x, busy: false, err: 'Photo nahi ban payi: ' + e.message } : x)); }
+  };
+  const sendCamToDm = async (du) => {
+    const small = await compressImageTo(du, 1100, 0.75);
+    const caption = dmText.trim(); setDmText('');
+    await sendDmData(small, 'camera-' + Date.now() + '.jpg', 'image/jpeg', Math.round(small.length * 0.75), caption);
+  };
+
+  // ---- Account: deactivate / permanent delete (password + email OTP) ----
+  const resetAcct = () => { setAcctMode(null); setAcctPass(''); setAcctCode(''); setAcctWord(''); setAcctSent(false); setAcctBusy(false); otpRef.current = null; setError(''); setNotice(''); };
+  const startAcct = async (mode) => {
+    resetAcct(); setAcctMode(mode);
+    try {
+      const tok = await getToken();
+      const info = await authCall('accounts:lookup', { idToken: tok });
+      const prov = ((info.users && info.users[0] && info.users[0].providerUserInfo) || []).map((x) => x.providerId);
+      setAcctHasPw(prov.indexOf('password') >= 0);
+    } catch (e) { setAcctHasPw(true); }
+  };
+  const sendAcctOtp = async () => {
+    if (!currentUser || !currentUser.email) { setError('Email nahi mila'); return; }
+    setAcctBusy(true); setError('');
+    try {
+      const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+      await sendOtpMail(currentUser.email, code);
+      otpRef.current = { code, exp: Date.now() + 10 * 60000, tries: 0 };
+      setAcctSent(true); setNotice('OTP bhej diya. Spam bhi check karo.');
+    } catch (e) { setError('OTP nahi gaya: ' + e.message); }
+    setAcctBusy(false);
+  };
+  const doDeactivate = async () => {
+    const uid = currentUser.uid;
+    await update(ref(db, 'users/' + uid), { deactivated: true, deactivatedAt: Date.now() });
+    await update(ref(db, 'profiles/' + uid), { deactivated: true });
+    await set(ref(db, 'presence/' + uid), { t: 0, on: false, hide: true }).catch(() => {});
+    logout(); setScreen('home'); setAcctMode(null);
+    setNotice('Account deactivate ho gaya. Dobara login karoge to wapas activate ho jayega 💞');
+  };
+  const doScheduleDelete = async () => {
+    const uid = currentUser.uid;
+    const at = Date.now() + 15 * 86400000;
+    await update(ref(db, 'users/' + uid), { deletePending: true, deleteAt: at });
+    await update(ref(db, 'profiles/' + uid), { deactivated: true, deleteAt: at });
+    await set(ref(db, 'presence/' + uid), { t: 0, on: false, hide: true }).catch(() => {});
+    logout(); setScreen('home'); setAcctMode(null);
+    setNotice('Account 15 din baad delete hoga. Is beech login karoge to delete cancel ho jayega.');
+  };
+  const confirmAcct = async () => {
+    if (!acctMode || !currentUser) return;
+    setError(''); setAcctBusy(true);
+    try {
+      if (acctHasPw) {
+        if (!acctPass) throw new Error('Password likho');
+        const data = await authCall('accounts:signInWithPassword', { email: currentUser.email, password: acctPass, returnSecureToken: true });
+        setAuthTokens({ idToken: data.idToken, refreshToken: data.refreshToken, expiresIn: data.expiresIn });
+      }
+      if (otpOn) {
+        const o = otpRef.current;
+        if (!acctSent || !o) throw new Error('Pehle OTP bhejo');
+        if (Date.now() > o.exp) throw new Error('OTP expire ho gaya, dobara bhejo');
+        if (o.tries >= 5) throw new Error('Bahut galat try. Naya OTP mangao');
+        o.tries += 1;
+        if (acctCode.trim() !== o.code) throw new Error('OTP galat hai');
+      } else if (!acctHasPw && acctWord.trim().toUpperCase() !== 'CONFIRM') {
+        throw new Error('Neeche box me CONFIRM likho');
+      }
+      otpRef.current = null;
+      if (acctMode === 'deactivate') await doDeactivate(); else await doScheduleDelete();
+    } catch (e) { setError(e.code ? authMsg(e.code) : e.message); }
+    setAcctBusy(false);
+  };
+
   // ---- Album ----
   const albumLoad = async () => {
     if (!pal || !palAes) return;
@@ -2462,6 +2682,16 @@ export default function App() {
     } catch (e) { setError('Album load nahi hua: ' + e.message); }
   };
   useEffect(() => { if (screen === 'album' && palAes) albumLoad(); }, [screen, palAes]);
+  const albumUpload = async (du) => {
+    setAlbumBusy(true); setError('');
+    try {
+      const small = await compressImageTo(du, 1100, 0.75);
+      const enc = await encryptText(palAes, small);
+      await push(ref(db, cidPath('album')), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
+      await albumLoad();
+    } catch (e) { setError('Photo nahi gayi: ' + e.message); }
+    setAlbumBusy(false);
+  };
   const albumAdd = () => {
     if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
     const input = document.createElement('input');
@@ -2469,14 +2699,7 @@ export default function App() {
     input.onchange = async () => {
       const f = input.files && input.files[0];
       if (!f) return;
-      setAlbumBusy(true); setError('');
-      try {
-        const small = await compressImageTo(await readAsDataUrl(f), 900, 0.65);
-        const enc = await encryptText(palAes, small);
-        await push(ref(db, cidPath('album')), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
-        await albumLoad();
-      } catch (e) { setError('Photo nahi gayi: ' + e.message); }
-      setAlbumBusy(false);
+      try { await albumUpload(await readAsDataUrl(f)); } catch (e) { setError('Photo nahi gayi: ' + e.message); }
     };
     input.click();
   };
@@ -2516,14 +2739,34 @@ export default function App() {
         await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
         await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
       }
-      const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid];
+      const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
       if (currentUser.username) paths.push('usernames/' + currentUser.username);
       for (const p of paths) await remove(ref(db, p)).catch(() => {});
-      clearAllData(); logout(); setDelConfirm(false);
+      clearAllData(); logout(); setDelConfirm(false); setScreen('home'); setAcctMode(null);
       setNotice('Account delete ho gaya.');
     } catch (e) {
       setError('Account delete nahi hua: ' + e.message + '. Ek baar logout karke dobara login karo, phir try karo.');
     }
+  };
+  const purgeAccount = async (uid) => {
+    let uname = '';
+    try { uname = (await call('GET', 'profiles/' + uid + '/username')) || ''; } catch (e) {}
+    let friends = {};
+    try { friends = (await call('GET', 'friends/' + uid)) || {}; } catch (e) {}
+    const tok = await getToken();
+    const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:delete?key=' + FIREBASE_API_KEY, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok }),
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d.error && d.error.message) || 'delete failed'); }
+    for (const k of Object.keys(friends)) {
+      const f = friends[k];
+      await remove(ref(db, 'friends/' + k + '/' + uid)).catch(() => {});
+      await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
+      if (f && f.chatId) await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
+    }
+    const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
+    if (uname) paths.push('usernames/' + uname);
+    for (const p2 of paths) await remove(ref(db, p2)).catch(() => {});
   };
   // ===== GAMES + COUPLE SPACE + SAFETY END =====
 
@@ -2692,7 +2935,7 @@ export default function App() {
     </>);
   };
 
-  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', games: 'NexGames 🎮', tdhub: 'Truth or Dare Battle 🔥', style: 'Nexstyle ♡', settings: t('settings') };
+  const titles = { chat: 'Private Chat 💬', profile: t('profile'), friends: t('friends'), groups: 'Group Chat 👥', games: 'NexGames 🎮', tdhub: 'Truth or Dare Battle 🔥', style: 'Theme & Wallpaper 🎨', settings: t('settings') };
   const title = screen === 'home' ? (page === 1 ? null : page === 2 ? 'NexGames 🎮' : 'Make it special') : titles[screen] || (screen === 'join' ? 'Join' : null);
   const inChat = screen === 'chat' && !!chatCode;
   const inDm = screen === 'dm';
@@ -2700,7 +2943,7 @@ export default function App() {
   const needUsername = isLoggedIn && !!currentUser && !currentUser.username;
   const friendSeen = dmFriend ? (dmSeen[dmFriend.uid] || 0) : 0;
   const partnerName = chatData && chatData.names && ident ? (Object.keys(chatData.names).filter((k) => k !== ident.sid).map((k) => chatData.names[k])[0] || t('partner')) : t('partner');
-  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
+  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'acct', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
   const sc = { alignItems: 'center', paddingBottom: 40, width: '100%' };
   const PH = '#ffffff88';
 
@@ -2990,7 +3233,8 @@ export default function App() {
   </>);
 
   const renderAlbum = () => (<>
-    <Btn label={albumBusy ? 'Ruko...' : '📸 Photo jodo'} onPress={albumAdd} />
+    <Btn label={albumBusy ? 'Ruko...' : '📷 Camera se kheencho'} onPress={() => openCamera(albumUpload)} />
+    <Btn label="🖼️ Gallery se jodo" onPress={albumAdd} />
     <Mini label="🔄 Refresh" onPress={albumLoad} />
     {albumItems.length === 0 && <Text style={s.sm}>Abhi koi photo nahi. Pehli photo tum jodo 💞</Text>}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
@@ -3087,7 +3331,6 @@ export default function App() {
           <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
           <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
           <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />
-          <Btn label="🎨 Nexstyle ♡" onPress={() => setScreen('style')} />
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
           <Btn label={t('settings')} onPress={() => setScreen('settings')} />
           <Nav label={t('back')} onPress={() => setPage(1)} />
@@ -3202,7 +3445,7 @@ export default function App() {
               <Mini label="🖼️ Background lagao" onPress={() => pickPhoto('bg')} />
               {!!bgPhoto && <Mini label="Hatao" onPress={() => { setBgPhoto(''); localStorage.removeItem('nexdare_bgphoto'); }} />}
             </View>
-            <Nav label={t('back')} onPress={() => setScreen('home')} />
+            <Nav label={t('back')} onPress={() => setScreen('settings')} />
           </ScrollView>
         )}
 
@@ -3242,10 +3485,10 @@ export default function App() {
                       <View key={f.uid}>
                         {chatRow({
                           rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username,
-                          sub: pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
+                          sub: deactMap[f.uid] ? '🚫 Account deactivated' : pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
                           time: pv ? fmtListTime(pv.t) : '', badge: un,
                           onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
-                          getHd: hdOf(f.uid), online: isOnline(presMap[f.uid]),
+                          getHd: hdOf(f.uid), online: !deactMap[f.uid] && isOnline(presMap[f.uid]),
                         })}
                         {friendMenu === f.uid && (
                           <View style={s.miniRow}>
@@ -3505,6 +3748,7 @@ export default function App() {
           {dmBusy && <Text style={s.sm}>⏳ Bhej raha hoon...</Text>}
           {recording && <Text style={s.sm}>🔴 Record ho raha hai... ruk-ne ke liye ⏹ dabao</Text>}
           <View style={s.sendRow}>
+            <TouchableOpacity style={s.attachBtn} onPress={() => { if (!dmShared) { setNotice('Friend ki encryption abhi ready nahi hai.'); return; } openCamera(sendCamToDm); }}><Text style={s.bt}>📷</Text></TouchableOpacity>
             <TouchableOpacity style={s.attachBtn} onPress={pickDmFile}><Text style={s.bt}>📎</Text></TouchableOpacity>
             <TouchableOpacity style={s.attachBtn} onPress={recording ? stopRec : startRec}><Text style={s.bt}>{recording ? '⏹' : '🎤'}</Text></TouchableOpacity>
             <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={dmText} onChangeText={setDmText} onSubmitEditing={sendDm} />
@@ -3516,6 +3760,42 @@ export default function App() {
           <Nav label={t('back')} onPress={leaveDm} />
         </>))}
 
+        {screen === 'acct' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>Account</Text>
+            {!acctMode ? (<>
+              <Text style={s.sm}>Kya karna chahte ho?</Text>
+              <TouchableOpacity style={s.acctCard} onPress={() => startAcct('deactivate')}>
+                <Text style={s.acctT}>⏸️  Temporarily deactivate</Text>
+                <Text style={s.acctS}>Tumhara profile aur chats doston ko nahi dikhenge. Dobara login karte hi sab wapas aa jayega.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.acctCard, { borderColor: '#ff6b6b88' }]} onPress={() => startAcct('delete')}>
+                <Text style={[s.acctT, { color: '#ff8a8a' }]}>🗑️  Permanently delete</Text>
+                <Text style={s.acctS}>15 din ke baad account aur saara data hamesha ke liye hat jayega. In 15 din me login karoge to delete cancel ho jayega.</Text>
+              </TouchableOpacity>
+            </>) : (<>
+              <Text style={[s.q, { color: acctMode === 'delete' ? '#ff8a8a' : th.accent2 }]}>{acctMode === 'delete' ? '🗑️ Permanently delete' : '⏸️ Deactivate'}</Text>
+              <Text style={s.sm}>{acctMode === 'delete' ? 'Account 15 din baad delete hoga. Is beech login karoge to cancel ho jayega. Pehle verify karo:' : 'Pehle verify karo:'}</Text>
+              {acctHasPw && <TextInput style={s.i} placeholder="Apna password" placeholderTextColor={PH} secureTextEntry autoCapitalize="none" value={acctPass} onChangeText={setAcctPass} />}
+              {otpOn ? (<>
+                {!acctSent
+                  ? <Btn label={acctBusy ? 'Ruko...' : '📧 Email par OTP bhejo'} onPress={sendAcctOtp} />
+                  : (<>
+                    <Text style={s.sm}>OTP {currentUser ? currentUser.email : ''} par bheja gaya (10 min valid)</Text>
+                    <TextInput style={s.i} placeholder="6 digit OTP" placeholderTextColor={PH} keyboardType="number-pad" maxLength={6} value={acctCode} onChangeText={setAcctCode} />
+                    <Mini label="🔁 OTP dobara bhejo" onPress={sendAcctOtp} />
+                  </>)}
+              </>) : (!acctHasPw && (<>
+                <Text style={s.sm}>Confirm karne ke liye neeche CONFIRM likho</Text>
+                <TextInput style={s.i} placeholder="CONFIRM" placeholderTextColor={PH} autoCapitalize="characters" value={acctWord} onChangeText={setAcctWord} />
+              </>))}
+              <Btn label={acctBusy ? 'Ruko...' : acctMode === 'delete' ? 'Haan, 15 din baad delete karo' : 'Deactivate karo'} onPress={confirmAcct} />
+              <Nav label={t('cancel')} onPress={resetAcct} />
+            </>)}
+            <Nav label={t('back')} onPress={() => { resetAcct(); setScreen('settings'); }} />
+          </ScrollView>
+        )}
+
         {screen === 'settings' && (
           <ScrollView contentContainerStyle={sc}>
             <Text style={[s.q, { color: th.accent2 }]}>{t('settings')}</Text>
@@ -3523,7 +3803,7 @@ export default function App() {
               { icon: '🔊', title: t('sound'), right: <Switch value={soundOn} onValueChange={(v) => { setSoundOn(v); localStorage.setItem('nexdare_sound', v ? '1' : '0'); }} /> },
               { icon: '🔔', title: t('notifications'), right: <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} /> },
               { icon: '🌐', title: 'Language', right: <Text style={s.setSub}>{((LANGS.find((l) => l[0] === uiLang) || [0, 'English'])[1]) + (langOpen ? '  ▴' : '  ▾')}</Text>, onPress: () => setLangOpen(!langOpen) },
-              { icon: '🎨', title: 'Theme & wallpaper', sub: 'Nexstyle', onPress: () => setScreen('style') },
+              { icon: '🎨', title: 'Theme & wallpaper', sub: 'Wallpaper, colours aur apni photo', onPress: () => setScreen('style') },
             ])}
             {langOpen && (
               <View style={s.miniRow}>
@@ -3541,17 +3821,12 @@ export default function App() {
             {setGroup('ACCOUNT', [
               { icon: '🚪', title: t('logout'), onPress: logout },
               { icon: '🧹', title: t('clearData'), onPress: () => setShowClearConfirm(true) },
-              { icon: '🗑️', title: 'Account delete', danger: true, onPress: () => setDelConfirm(true) },
+              { icon: '⚙️', title: 'Account', sub: 'Deactivate ya permanently delete', danger: true, onPress: () => { resetAcct(); setScreen('acct'); } },
             ])}
             {showClearConfirm && (<>
               <Text style={s.sm}>{t('clearConfirm')}</Text>
               <Btn label={t('yesClear')} onPress={clearAllData} />
               <Nav label={t('cancel')} onPress={() => setShowClearConfirm(false)} />
-            </>)}
-            {delConfirm && (<>
-              <Text style={s.sm}>Pakka? Aapka account aur data hamesha ke liye delete ho jayega.</Text>
-              <Btn label="Haan, delete karo" onPress={deleteAccount} />
-              <Nav label={t('cancel')} onPress={() => setDelConfirm(false)} />
             </>)}
             <Nav label={t('back')} onPress={() => setScreen('home')} />
           </ScrollView>
@@ -3560,6 +3835,62 @@ export default function App() {
         {!!error && <Text style={[s.sm, { color: '#ff6b6b', marginTop: 10 }]}>{error}</Text>}
         {!!notice && <Text style={[s.sm, { color: th.accent2, marginTop: 8 }]}>{notice}</Text>}
       </>)}
+      {!!cam && (() => {
+        const { bw, bh } = camBox();
+        const flt = CAM_FILTERS[cam.fi][1];
+        return (
+          <View style={s.camBg}>
+            <ScrollView contentContainerStyle={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={[s.camTop, { width: bw }]}>
+                <TouchableOpacity onPress={closeCam} style={s.camChip}><Text style={s.camChipT}>✕</Text></TouchableOpacity>
+                {!cam.raw && <TouchableOpacity onPress={() => setCam((c) => ({ ...c, timer: c.timer === 0 ? 3 : c.timer === 3 ? 5 : 0 }))} style={s.camChip}><Text style={s.camChipT}>{cam.timer ? '⏱ ' + cam.timer + 's' : '⏱ Off'}</Text></TouchableOpacity>}
+                {!cam.raw && <TouchableOpacity onPress={() => setCam((c) => ({ ...c, facing: c.facing === 'user' ? 'environment' : 'user' }))} style={s.camChip}><Text style={s.camChipT}>🔄 Flip</Text></TouchableOpacity>}
+              </View>
+              <TouchableOpacity activeOpacity={1} onPress={camPlace} style={{ width: bw, height: bh, backgroundColor: '#000', overflow: 'hidden', borderRadius: 18 }}>
+                {cam.raw
+                  ? React.createElement('img', { src: cam.raw, style: { width: '100%', height: '100%', objectFit: 'cover', filter: flt, pointerEvents: 'none' } })
+                  : React.createElement('video', { ref: camVideo, autoPlay: true, playsInline: true, muted: true, style: { width: '100%', height: '100%', objectFit: 'cover', filter: flt, transform: cam.facing === 'user' ? 'scaleX(-1)' : 'none', pointerEvents: 'none' } })}
+                {cam.stickers.map((st, i) => (
+                  <Text key={i} pointerEvents="none" style={{ position: 'absolute', left: st.x * bw - bw * 0.1, top: st.y * bh - bw * 0.1, fontSize: bw * 0.16, width: bw * 0.2, textAlign: 'center' }}>{st.e}</Text>
+                ))}
+                {!!cam.caption && cam.raw && (
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: bh * 0.72, height: bw * 0.15, backgroundColor: '#0000008c', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '700', fontSize: bw * 0.065 }}>{cam.caption}</Text>
+                  </View>
+                )}
+                {cam.count > 0 && <View pointerEvents="none" style={s.camCount}><Text style={s.camCountT}>{cam.count}</Text></View>}
+              </TouchableOpacity>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, maxHeight: 44, width: bw }}>
+                {CAM_FILTERS.map((f, i) => (
+                  <TouchableOpacity key={f[0]} onPress={() => setCam((c) => ({ ...c, fi: i }))} style={[s.camFilt, cam.fi === i ? { backgroundColor: '#ff4d8d' } : null]}>
+                    <Text style={s.camChipT}>{f[0]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {!cam.raw ? (<>
+                {!!cam.err && <Text style={[s.sm, { color: '#ff8a8a' }]}>{cam.err}</Text>}
+                <TouchableOpacity onPress={camShutter} style={s.shutter}><View style={s.shutterIn} /></TouchableOpacity>
+              </>) : (<>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8, maxHeight: 48, width: bw }}>
+                  {CAM_STICKERS.map((e) => (
+                    <TouchableOpacity key={e} onPress={() => setCam((c) => ({ ...c, pick: c.pick === e ? '' : e }))} style={[s.camFilt, cam.pick === e ? { backgroundColor: '#ff4d8d' } : null]}>
+                      <Text style={{ fontSize: 22 }}>{e}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity onPress={() => setCam((c) => ({ ...c, stickers: c.stickers.slice(0, -1) }))} style={s.camFilt}><Text style={s.camChipT}>↩️ Undo</Text></TouchableOpacity>
+                </ScrollView>
+                <Text style={s.hint}>{cam.pick ? 'Photo par tap karo, sticker wahin lagega' : 'Sticker chuno, phir photo par tap karo'}</Text>
+                <TextInput style={[s.i, { width: bw, marginVertical: 4 }]} placeholder="Caption likho (optional)" placeholderTextColor={PH} value={cam.caption} onChangeText={(v) => setCam((c) => ({ ...c, caption: v }))} />
+                {!!cam.err && <Text style={[s.sm, { color: '#ff8a8a' }]}>{cam.err}</Text>}
+                <View style={s.miniRow}>
+                  <Mini label="🔁 Dobara" onPress={() => setCam((c) => ({ ...c, raw: null, err: '' }))} />
+                  <Mini label={cam.busy ? 'Ruko...' : '✅ Bhejo'} onPress={camUse} />
+                </View>
+              </>)}
+            </ScrollView>
+          </View>
+        );
+      })()}
       {!!viewer && (
         <TouchableOpacity activeOpacity={1} onPress={() => setViewer(null)} style={s.viewerBg}>
           <RNImage source={{ uri: viewerHd && viewerHd !== 'none' ? viewerHd : viewer.uri }} style={s.viewerImg} resizeMode="contain" />
@@ -3646,6 +3977,18 @@ const s = StyleSheet.create({
   roundBtn: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
   roundT: { fontSize: 22, color: '#fff' },
   hint: { color: '#ffffff88', fontSize: 12, marginTop: 4, marginBottom: 6, textAlign: 'center' },
+  acctCard: { width: '92%', borderWidth: 1.5, borderColor: '#ffffff30', backgroundColor: '#ffffff10', borderRadius: 18, padding: 16, marginVertical: 8 },
+  acctT: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  acctS: { color: '#ffffffaa', fontSize: 13, marginTop: 6 },
+  camBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000000f5', zIndex: 1000 },
+  camTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  camChip: { backgroundColor: '#ffffff22', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 14 },
+  camChipT: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  camFilt: { backgroundColor: '#ffffff18', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 14, marginRight: 8, justifyContent: 'center' },
+  camCount: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#00000055' },
+  camCountT: { color: '#fff', fontSize: 96, fontWeight: '800' },
+  shutter: { width: 78, height: 78, borderRadius: 39, borderWidth: 5, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  shutterIn: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#fff' },
   onDot: { position: 'absolute', right: 1, bottom: 1, width: 14, height: 14, borderRadius: 7, backgroundColor: '#25d366', borderWidth: 2, borderColor: '#1a0a12' },
   tttGrid: { marginVertical: 10 },
   tttCell: { width: 92, height: 92, margin: 4, borderRadius: 16, backgroundColor: '#ffffff14', borderWidth: 1.5, borderColor: '#ffffff30', alignItems: 'center', justifyContent: 'center' },
