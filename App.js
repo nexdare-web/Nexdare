@@ -512,6 +512,73 @@ const letterOf = (name) => {
 };
 const LETTER_COLORS = ['#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#009688', '#43a047', '#fb8c00', '#f4511e', '#8d6e63'];
 const avLbl = (av) => (av && av !== '😎' ? av + ' ' : '');
+const resizeDataUrl = (du, max, q) => new Promise((res, rej) => {
+  const img = new window.Image();
+  img.onload = () => {
+    const sc = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    res(c.toDataURL('image/jpeg', q));
+  };
+  img.onerror = () => rej(new Error('Photo khul nahi payi'));
+  img.src = du;
+});
+const hdOf = (uid) => () => call('GET', 'profiles/' + uid + '/photoHd');
+const isOnline = (p) => !!p && !p.hide && !!p.on && !!p.t && Date.now() - p.t < 45000;
+const presText = (p) => {
+  if (!p || p.hide || !p.t) return '';
+  if (isOnline(p)) return 'online';
+  const d = new Date(p.t);
+  const now = new Date();
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (diff <= 0) return 'last seen today at ' + hm;
+  if (diff === 1) return 'last seen yesterday at ' + hm;
+  return 'last seen ' + d.toLocaleDateString() + ' at ' + hm;
+};
+// ---- Tic Tac Toe helpers ----
+const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+const tttCheck = (b) => {
+  for (const l of TTT_LINES) {
+    if (b[l[0]] !== '-' && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return { w: b[l[0]], line: l };
+  }
+  return b.indexOf('-') >= 0 ? null : { w: 'draw', line: [] };
+};
+const tttScore = (b, turn) => {
+  const r = tttCheck(b);
+  if (r) return r.w === 'O' ? 1 : r.w === 'X' ? -1 : 0;
+  let best = turn === 'O' ? -2 : 2;
+  for (let i = 0; i < 9; i++) {
+    if (b[i] === '-') {
+      const sc = tttScore(b.slice(0, i) + turn + b.slice(i + 1), turn === 'O' ? 'X' : 'O');
+      best = turn === 'O' ? Math.max(best, sc) : Math.min(best, sc);
+    }
+  }
+  return best;
+};
+const tttCpuMove = (b, level) => {
+  const emp = [];
+  for (let i = 0; i < 9; i++) if (b[i] === '-') emp.push(i);
+  if (!emp.length) return -1;
+  if (level === 'easy' && Math.random() < 0.65) return pickOne(emp);
+  let best = -2; let mv = [];
+  for (const i of emp) {
+    const sc = tttScore(b.slice(0, i) + 'O' + b.slice(i + 1), 'X');
+    if (sc > best) { best = sc; mv = [i]; } else if (sc === best) mv.push(i);
+  }
+  return pickOne(mv);
+};
+const TTT_FRESH = { board: '---------', turn: 'X', status: 'play', line: [], scores: { you: 0, cpu: 0, draw: 0 }, round: 0 };
+const tttApply = (g, i, sym) => {
+  const board = g.board.slice(0, i) + sym + g.board.slice(i + 1);
+  const r = tttCheck(board);
+  if (!r) return { ...g, board, turn: sym === 'X' ? 'O' : 'X' };
+  const scores = { ...g.scores };
+  if (r.w === 'draw') scores.draw++; else if (r.w === 'X') scores.you++; else scores.cpu++;
+  return { ...g, board, status: r.w === 'draw' ? 'draw' : 'win', winner: r.w, line: r.line, scores };
+};
 // ===== GROUP CHAT HELPERS END =====
 
 // ===== GAMES + COUPLE DATA =====
@@ -729,6 +796,17 @@ export default function App() {
   const [pics, setPics] = useState({});
   const [friendMenu, setFriendMenu] = useState(null);
   const [viewer, setViewer] = useState(null);
+  const [viewerHd, setViewerHd] = useState('');
+  const [myPhotoHd, setMyPhotoHd] = useState('');
+  const [presMap, setPresMap] = useState({});
+  const [showSeen, setShowSeen] = useState(() => { try { return localStorage.getItem('nexdare_showseen') !== '0'; } catch (e) { return true; } });
+  const [grpPhoto, setGrpPhoto] = useState('');
+  const [grpPics, setGrpPics] = useState({});
+  const grpPicTried = useRef({});
+  const [tttMode, setTttMode] = useState('pal');
+  const [tttLevel, setTttLevel] = useState('hard');
+  const [tttDoc, setTttDoc] = useState(null);
+  const [tttCpu, setTttCpu] = useState(TTT_FRESH);
   const picTried = useRef({});
   const lastGrp = useRef('');
   const grpScrollRef = useRef(null);
@@ -796,6 +874,7 @@ export default function App() {
       const n1 = localStorage.getItem('nexdare_notif'); if (n1 !== null) setNotifOn(n1 === '1');
       setSkin(localStorage.getItem('nexdare_skin') || '');
       setMyPhoto(localStorage.getItem('nexdare_myphoto') || '');
+      setMyPhotoHd(localStorage.getItem('nexdare_myphotohd') || '');
       setBgPhoto(localStorage.getItem('nexdare_bgphoto') || '');
     } catch (e) {}
   }, []);
@@ -825,23 +904,16 @@ export default function App() {
       if (!file) return;
       try {
         const du = await readAsDataUrl(file);
-        const small = await new Promise((res, rej) => {
-          const img = new window.Image();
-          img.onload = () => {
-            const max = which === 'me' ? 120 : 800;
-            const sc = Math.min(1, max / Math.max(img.width, img.height));
-            const c = document.createElement('canvas');
-            c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
-            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-            res(c.toDataURL('image/jpeg', which === 'me' ? 0.6 : 0.5));
-          };
-          img.onerror = () => rej(new Error('Photo khul nahi payi'));
-          img.src = du;
-        });
         if (which === 'me') {
-          setMyPhoto(small); localStorage.setItem('nexdare_myphoto', small);
-          if (currentUser && currentUser.username) update(ref(db, 'profiles/' + currentUser.uid), { photo: small }).catch(() => {});
-        } else { setBgPhoto(small); localStorage.setItem('nexdare_bgphoto', small); }
+          const thumb = await resizeDataUrl(du, 240, 0.82);
+          const hd = await resizeDataUrl(du, 1080, 0.86);
+          setMyPhoto(thumb); setMyPhotoHd(hd);
+          try { localStorage.setItem('nexdare_myphoto', thumb); localStorage.setItem('nexdare_myphotohd', hd); } catch (e) {}
+          if (currentUser && currentUser.username) update(ref(db, 'profiles/' + currentUser.uid), { photo: thumb, photoHd: hd }).catch(() => {});
+        } else {
+          const small = await resizeDataUrl(du, 800, 0.5);
+          setBgPhoto(small); localStorage.setItem('nexdare_bgphoto', small);
+        }
         setNotice('Photo laga di 💕');
       } catch (e) { setError('Photo nahi lagi: ' + e.message); }
     };
@@ -1602,12 +1674,12 @@ export default function App() {
 
   const clearAllData = () => {
     try {
-      ['nexdare_id_v1', 'nexdare_profile', 'nexdare_sound', 'nexdare_notif', 'nexdare_user', 'nexdare_skin', 'nexdare_myphoto', 'nexdare_bgphoto'].forEach((k) => localStorage.removeItem(k));
+      ['nexdare_id_v1', 'nexdare_profile', 'nexdare_sound', 'nexdare_notif', 'nexdare_user', 'nexdare_skin', 'nexdare_myphoto', 'nexdare_myphotohd', 'nexdare_bgphoto'].forEach((k) => localStorage.removeItem(k));
       clearAuthTokens();
       Object.keys(localStorage).forEach((k) => { if (k.startsWith('nexdare_hidden_') || k.startsWith('nexdare_dmhidden_') || k.startsWith('nexdare_grphidden_')) localStorage.removeItem(k); });
       sessionIdentity = null;
       setProfile({ name: '', bio: '', avatar: '😎' });
-      setSkin(''); setMyPhoto(''); setBgPhoto('');
+      setSkin(''); setMyPhoto(''); setMyPhotoHd(''); setBgPhoto('');
       setSoundOn(true); setNotifOn(false); setIsLoggedIn(false); setCurrentUser(null);
       setShowClearConfirm(false); setNotice(t('dataCleared'));
     } catch (e) { setError('Clear failed: ' + e.message); }
@@ -1883,6 +1955,7 @@ export default function App() {
     const subs = [];
     if (screen === 'wyr' || screen === 'nhie') subs.push(onValue(ref(db, cidPath(screen)), (snap) => setPqData({ kind: screen, v: snap.val() })));
     if (screen === 'quiz') subs.push(onValue(ref(db, cidPath('quiz')), (snap) => setQuiz(snap.val())));
+    if (screen === 'ttt') subs.push(onValue(ref(db, cidPath('ttt')), (snap) => setTttDoc(snap.val())));
     if (screen === 'daily') subs.push(onValue(ref(db, cidPath('daily/' + dayKey())), (snap) => setDailyDoc(snap.val())));
     if (screen === 'mem') subs.push(onValue(ref(db, cidPath('mem')), (snap) => setMemDoc(snap.val())));
     if (screen === 'notes') subs.push(onValue({ path: cidPath('notes'), query: 'orderBy=%22%24key%22&limitToLast=50' }, (snap) => setNotesDoc(snap.val())));
@@ -1905,6 +1978,181 @@ export default function App() {
     try { await update(ref(db, cidPath(kind + '/picks')), { [currentUser.uid]: i }); playSound('click', soundOn); }
     catch (e) { setError('Error: ' + e.message); }
   };
+
+  // ---- Presence, photos, Tic Tac Toe ----
+  useEffect(() => {
+    setViewerHd('');
+    if (!viewer || !viewer.getHd) return;
+    let c = false;
+    (async () => {
+      try { const h = await viewer.getHd(); if (!c) setViewerHd(h && typeof h === 'string' ? h : 'none'); } catch (e) { if (!c) setViewerHd('none'); }
+    })();
+    return () => { c = true; };
+  }, [viewer && viewer.uri]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !currentUser.uid || !currentUser.username) return;
+    const pRef = ref(db, 'presence/' + currentUser.uid);
+    const beat = (on) => { set(pRef, showSeen ? { t: Date.now(), on } : { t: 0, on: false, hide: true }).catch(() => {}); };
+    const isWeb = Platform.OS === 'web' && typeof document !== 'undefined';
+    beat(true);
+    const timer = setInterval(() => beat(!(isWeb && document.hidden)), 20000);
+    const onVis = () => beat(!document.hidden);
+    const onUnload = () => beat(false);
+    if (isWeb) { document.addEventListener('visibilitychange', onVis); window.addEventListener('pagehide', onUnload); }
+    return () => {
+      clearInterval(timer);
+      if (isWeb) { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pagehide', onUnload); }
+      beat(false);
+    };
+  }, [isLoggedIn, currentUser && currentUser.uid, showSeen]);
+
+  const loadPres = async (uids) => {
+    const out = {};
+    for (const u of uids) {
+      try { out[u] = (await call('GET', 'presence/' + u)) || null; } catch (e) {}
+    }
+    setPresMap((p) => ({ ...p, ...out }));
+  };
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser) return;
+    let uids = [];
+    if (screen === 'dm' && dmFriend) uids = [dmFriend.uid];
+    else if (screen === 'friends') uids = Object.keys(cloudFriends);
+    else if (screen === 'groups' && grp) uids = Object.keys(grpMembers).filter((u) => u !== currentUser.uid);
+    if (!uids.length) return;
+    loadPres(uids);
+    const timer = setInterval(() => loadPres(uids), screen === 'dm' ? 10000 : 20000);
+    return () => clearInterval(timer);
+  }, [screen, dmFriend && dmFriend.uid, grp && grp.gid, Object.keys(cloudFriends).join(','), Object.keys(grpMembers).join(',')]);
+  const toggleSeen = (v) => { setShowSeen(v); try { localStorage.setItem('nexdare_showseen', v ? '1' : '0'); } catch (e) {} };
+
+  useEffect(() => {
+    if (screen === 'groups' && grp && grpInfo) Object.keys(grpMembers).forEach((u) => ensurePic({ uid: u }));
+  }, [grpInfo, Object.keys(grpMembers).join(',')]);
+
+  // group photo (encrypted with the group key)
+  const grpHdLoader = async () => {
+    const v = await call('GET', 'groups/' + grp.gid + '/photoHd');
+    if (!v || !v.hd) return '';
+    return (await decryptText(grpKey, v.hd)) || '';
+  };
+  const grpHdFor = (g) => async () => {
+    const v = await call('GET', 'groups/' + g.gid + '/photoHd');
+    if (!v || !v.hd) return '';
+    const k = await groupKeyOf(g.code);
+    return (await decryptText(k, v.hd)) || '';
+  };
+  const loadGrpPhoto = async () => {
+    if (!grp || !grpKey) return;
+    try {
+      const v = await call('GET', 'groups/' + grp.gid + '/photo');
+      if (v && v.th) {
+        const txt = await decryptText(grpKey, v.th);
+        setGrpPhoto(txt || '');
+        if (txt) setGrpPics((p) => ({ ...p, [grp.gid]: txt }));
+      } else setGrpPhoto('');
+    } catch (e) {}
+  };
+  useEffect(() => {
+    if (screen !== 'groups' || !grp || !grpKey) return;
+    setGrpPhoto('');
+    loadGrpPhoto();
+    const tm = setInterval(loadGrpPhoto, 60000);
+    return () => clearInterval(tm);
+  }, [screen, grp && grp.gid, grpKey]);
+  useEffect(() => {
+    if (screen !== 'groups' || grp) return;
+    Object.keys(groupList).forEach(async (gid) => {
+      if (grpPicTried.current[gid]) return;
+      grpPicTried.current[gid] = true;
+      try {
+        const v = await call('GET', 'groups/' + gid + '/photo');
+        if (v && v.th) {
+          const k = await groupKeyOf(groupList[gid].code);
+          const txt = await decryptText(k, v.th);
+          if (txt) setGrpPics((p) => ({ ...p, [gid]: txt }));
+        }
+      } catch (e) { grpPicTried.current[gid] = false; }
+    });
+  }, [screen, !!grp, Object.keys(groupList).join(',')]);
+  const pickGroupPhoto = () => {
+    if (!grp || !grpKey) return;
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const du = await readAsDataUrl(file);
+        const thumb = await resizeDataUrl(du, 240, 0.82);
+        const hd = await resizeDataUrl(du, 1080, 0.86);
+        const eTh = await encryptText(grpKey, thumb);
+        const eHd = await encryptText(grpKey, hd);
+        await set(ref(db, 'groups/' + grp.gid + '/photoHd'), { hd: eHd });
+        await set(ref(db, 'groups/' + grp.gid + '/photo'), { th: eTh, t: Date.now() });
+        setGrpPhoto(thumb); setGrpPics((p) => ({ ...p, [grp.gid]: thumb }));
+        setNotice('Group photo laga di 💕');
+      } catch (e) { setError('Photo nahi lagi: ' + e.message); }
+    };
+    input.click();
+  };
+
+  // share app
+  const shareApp = async () => {
+    const msg = 'Nexdare 💕 - couples, dost aur family ke liye chat + games app. Yahan kholo: https://nexdare-web.vercel.app';
+    try { await Share.share({ message: msg }); } catch (e) { copyText(msg); }
+  };
+
+  // Tic Tac Toe (dost ke saath)
+  const tttNewRound = async () => {
+    if (!pal || !currentUser) return;
+    const cur = tttDoc;
+    const xUid = cur && cur.xUid === currentUser.uid ? pal.uid : currentUser.uid;
+    try {
+      await set(ref(db, cidPath('ttt')), { board: '---------', xUid, turn: xUid, status: 'play', line: '', scores: (cur && cur.scores) || {}, n: ((cur && cur.n) || 0) + 1, t: Date.now() });
+      playSound('click', soundOn);
+    } catch (e) { setError('Error: ' + e.message); }
+  };
+  const tttMove = async (i) => {
+    const d = tttDoc;
+    if (!d || d.status !== 'play' || d.turn !== currentUser.uid || d.board[i] !== '-') return;
+    const sym = d.xUid === currentUser.uid ? 'X' : 'O';
+    const b = d.board.slice(0, i) + sym + d.board.slice(i + 1);
+    const r = tttCheck(b);
+    const upd = { board: b, t: Date.now() };
+    if (r) {
+      const key = r.w === 'draw' ? 'draw' : currentUser.uid;
+      upd.status = r.w === 'draw' ? 'draw' : 'win';
+      upd.winner = r.w === 'draw' ? '' : currentUser.uid;
+      upd.line = r.line.join('');
+      upd['scores/' + key] = (((d.scores || {})[key]) || 0) + 1;
+    } else upd.turn = pal.uid;
+    setTttDoc({ ...d, board: b, turn: r ? d.turn : pal.uid, status: upd.status || 'play' });
+    try { await update(ref(db, cidPath('ttt')), upd); playSound(r ? 'success' : 'click', soundOn); }
+    catch (e) { setError('Error: ' + e.message); }
+  };
+  const tttResetScore = async () => { try { await update(ref(db, cidPath('ttt')), { scores: null }); } catch (e) { setError('Error: ' + e.message); } };
+  // Tic Tac Toe (computer se)
+  const tttCpuTap = (i) => {
+    setTttCpu((g) => (g.status !== 'play' || g.turn !== 'X' || g.board[i] !== '-' ? g : tttApply(g, i, 'X')));
+    playSound('click', soundOn);
+  };
+  const tttCpuNew = () => setTttCpu((g) => ({ ...g, board: '---------', status: 'play', line: [], winner: undefined, round: g.round + 1, turn: (g.round + 1) % 2 === 0 ? 'X' : 'O' }));
+  useEffect(() => {
+    if (screen !== 'ttt' || tttMode !== 'cpu') return;
+    if (tttCpu.status !== 'play' || tttCpu.turn !== 'O') return;
+    const tm = setTimeout(() => {
+      setTttCpu((g) => {
+        if (g.status !== 'play' || g.turn !== 'O') return g;
+        const mv = tttCpuMove(g.board, tttLevel);
+        return mv < 0 ? g : tttApply(g, mv, 'O');
+      });
+    }, 600);
+    return () => clearTimeout(tm);
+  }, [screen, tttMode, tttCpu.turn, tttCpu.status, tttCpu.round]);
+  useEffect(() => { if (screen === 'ttt' && tttMode === 'cpu' && tttCpu.status !== 'play') playSound('success', soundOn); }, [tttCpu.status]);
 
   // ---- Love Quiz ----
   const pickQuizQ = () => {
@@ -2146,7 +2394,7 @@ export default function App() {
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
   else if (screen === 'join' || screen === 'room') th = themes.room;
   else if (screen === 'chat' || screen === 'dm' || screen === 'groups') th = themes.chat;
-  else if (screen === 'games' || screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
+  else if (screen === 'games' || screen === 'ttt' || screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
   else if (screen === 'couple' || screen === 'daily' || screen === 'mem' || screen === 'album' || screen === 'notes') th = themes.p3;
   else th = themes.settings;
   if (skin && skins[skin]) th = { ...th, ...skins[skin] };
@@ -2173,10 +2421,10 @@ export default function App() {
     </View>
   );
   const myLetterName = profile.name || (currentUser && (currentUser.email || currentUser.name || currentUser.username)) || '';
-  const Pic = ({ uri, emoji, size, name }) => {
+  const Pic = ({ uri, emoji, size, name, getHd }) => {
     if (uri) {
       return (
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setViewer(uri)}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setViewer({ uri, getHd })}>
           <RNImage source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
         </TouchableOpacity>
       );
@@ -2189,9 +2437,12 @@ export default function App() {
       </View>
     );
   };
-  const chatRow = ({ rowKey, uri, emoji, title, sub, time, badge, onPress, onMore }) => (
+  const chatRow = ({ rowKey, uri, emoji, title, sub, time, badge, onPress, onMore, online, getHd }) => (
     <TouchableOpacity key={rowKey} activeOpacity={0.6} style={s.chatRow} onPress={onPress} onLongPress={onMore}>
-      <View style={s.avWrap}><Pic uri={uri} emoji={emoji} size={52} name={title} /></View>
+      <View>
+        <View style={s.avWrap}><Pic uri={uri} emoji={emoji} size={52} name={title} getHd={getHd} /></View>
+        {!!online && <View style={s.onDot} />}
+      </View>
       <View style={{ flex: 1, marginLeft: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text numberOfLines={1} style={s.rowTitle}>{title}</Text>
@@ -2312,6 +2563,68 @@ export default function App() {
     ? React.createElement('input', { type: 'date', value, onChange: (e) => onChange(e.target.value), style: { width: '80%', padding: 12, borderRadius: 14, border: '1px solid #ffffff44', background: '#ffffff18', color: '#fff', fontSize: 16, colorScheme: 'dark', margin: '6px 0' } })
     : <TextInput style={s.i} placeholder="YYYY-MM-DD" placeholderTextColor={PH} value={value} onChangeText={onChange} />);
 
+  const renderTtt = () => {
+    const grid = (board, line, canTap, onTap) => (
+      <View style={s.tttGrid}>
+        {[0, 1, 2].map((r) => (
+          <View key={r} style={{ flexDirection: 'row' }}>
+            {[0, 1, 2].map((c) => {
+              const i = r * 3 + c;
+              const win = line.indexOf(i) >= 0;
+              return (
+                <TouchableOpacity key={i} activeOpacity={0.7} disabled={!canTap || board[i] !== '-'} onPress={() => onTap(i)}
+                  style={[s.tttCell, win ? { backgroundColor: th.accent + '77', borderColor: th.accent } : null]}>
+                  <Text style={[s.tttMark, { color: board[i] === 'X' ? th.accent2 : '#ffd166' }]}>{board[i] === '-' ? '' : board[i]}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+    const modeRow = (
+      <View style={s.miniRow}>
+        <Mini label={(tttMode === 'pal' ? '✅ ' : '') + '👫 Dost ke saath'} onPress={() => setTttMode('pal')} />
+        <Mini label={(tttMode === 'cpu' ? '✅ ' : '') + '🤖 Computer se'} onPress={() => setTttMode('cpu')} />
+      </View>
+    );
+    if (tttMode === 'cpu') {
+      const g = tttCpu;
+      const msg = g.status === 'win' ? (g.winner === 'X' ? '🎉 Tum jeet gaye!' : '🤖 Computer jeet gaya!') : g.status === 'draw' ? '🤝 Draw!' : g.turn === 'X' ? 'Teri baari ✨ (X)' : 'Computer soch raha hai... (O)';
+      return (<>
+        {modeRow}
+        <View style={s.miniRow}>
+          <Mini label={(tttLevel === 'easy' ? '✅ ' : '') + 'Easy'} onPress={() => setTttLevel('easy')} />
+          <Mini label={(tttLevel === 'hard' ? '✅ ' : '') + 'Hard 🔥'} onPress={() => setTttLevel('hard')} />
+        </View>
+        <Text style={s.bt}>{msg}</Text>
+        {grid(g.board, g.line, g.status === 'play' && g.turn === 'X', tttCpuTap)}
+        <Text style={s.sm}>Score - Tum: {g.scores.you} • Computer: {g.scores.cpu} • Draw: {g.scores.draw}</Text>
+        <Btn label="🔄 Nayi game" onPress={tttCpuNew} />
+        <Mini label="Score reset" onPress={() => setTttCpu({ ...TTT_FRESH, scores: { you: 0, cpu: 0, draw: 0 } })} />
+      </>);
+    }
+    return (<>
+      {modeRow}
+      {pairGate((() => {
+        const d = tttDoc;
+        if (!d) return (<><Text style={s.sm}>Abhi koi game nahi chal rahi.</Text><Btn label="🎮 Game shuru karo" onPress={tttNewRound} /></>);
+        const meX = d.xUid === currentUser.uid;
+        const line = d.line ? String(d.line).split('').map(Number) : [];
+        const myTurn = d.status === 'play' && d.turn === currentUser.uid;
+        const sc = d.scores || {};
+        const msg = d.status === 'win' ? (d.winner === currentUser.uid ? '🎉 Tum jeet gaye!' : '😅 ' + palName + ' jeet gaya') : d.status === 'draw' ? '🤝 Draw!' : myTurn ? 'Teri baari ✨' : palName + ' ki baari...';
+        return (<>
+          <Text style={s.sm}>Tum {meX ? 'X' : 'O'} • {palName} {meX ? 'O' : 'X'} • X pehle chalta hai</Text>
+          <Text style={s.bt}>{msg}</Text>
+          {grid(d.board, line, myTurn, tttMove)}
+          <Text style={s.sm}>Score - Tum: {sc[currentUser.uid] || 0} • {palName}: {sc[pal.uid] || 0} • Draw: {sc.draw || 0}</Text>
+          {d.status !== 'play' && <Btn label="🔄 Rematch" onPress={tttNewRound} />}
+          <Mini label="Score reset" onPress={tttResetScore} />
+        </>);
+      })())}
+    </>);
+  };
   const pairGate = (content) => {
     if (!subtle) return <Text style={s.sm}>{t('needBrowserChat')}</Text>;
     if (!pal || palPicking) {
@@ -2320,7 +2633,7 @@ export default function App() {
         <Text style={s.sm}>Kiske saath khelna hai? Apne 💌 Message wale dost me se chuno</Text>
         {fl.length === 0 && <Text style={s.sm}>Abhi koi friend nahi hai. Pehle Message me friend add karo.</Text>}
         <View style={{ width: '100%' }}>
-          {fl.map((f) => chatRow({ rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username, sub: '@' + f.username, onPress: () => choosePal(f) }))}
+          {fl.map((f) => chatRow({ rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username, sub: '@' + f.username, getHd: hdOf(f.uid), onPress: () => choosePal(f) }))}
         </View>
         {palPicking && !!pal && <Mini label={t('cancel')} onPress={() => setPalPicking(false)} />}
       </>);
@@ -2585,6 +2898,7 @@ export default function App() {
           <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />
           <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
           <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
+          <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />
           <Nav label={t('back')} onPress={backToTools} />
         </>)}
 
@@ -2678,7 +2992,7 @@ export default function App() {
 
         {screen === 'profile' && (
           <ScrollView contentContainerStyle={sc}>
-            <Pic uri={myPhoto} emoji={profile.avatar} size={90} name={myLetterName} />
+            <Pic uri={myPhoto} emoji={profile.avatar} size={90} name={myLetterName} getHd={myPhotoHd ? async () => myPhotoHd : undefined} />
             <Mini label={myPhoto ? '📷 Photo badlo' : '📷 Apni photo lagao'} onPress={() => pickPhoto('me')} />
             {currentUser && <Text style={s.sm}>@{currentUser.username} • {currentUser.email}</Text>}
             <TextInput style={s.i} placeholder={t('name')} placeholderTextColor={PH} value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} />
@@ -2697,7 +3011,7 @@ export default function App() {
               <Mini label="Auto" onPress={() => { setSkin(''); localStorage.removeItem('nexdare_skin'); }} />
             </View>
             <Text style={s.sm}>Apni photo (profile aur chats me dikhegi)</Text>
-            <Pic uri={myPhoto} emoji={profile.avatar} size={70} name={myLetterName} />
+            <Pic uri={myPhoto} emoji={profile.avatar} size={70} name={myLetterName} getHd={myPhotoHd ? async () => myPhotoHd : undefined} />
             <Mini label="📷 Apni photo lagao" onPress={() => pickPhoto('me')} />
             <Text style={s.sm}>Background photo (poori app me)</Text>
             <View style={s.miniRow}>
@@ -2747,6 +3061,7 @@ export default function App() {
                           sub: pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
                           time: pv ? fmtListTime(pv.t) : '', badge: un,
                           onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
+                          getHd: hdOf(f.uid), online: isOnline(presMap[f.uid]),
                         })}
                         {friendMenu === f.uid && (
                           <View style={s.miniRow}>
@@ -2760,6 +3075,14 @@ export default function App() {
               </View>
             )}
             <Nav label={t('back')} onPress={() => setScreen('home')} />
+          </ScrollView>
+        )}
+
+        {screen === 'ttt' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>⭕ Tic Tac Toe</Text>
+            {renderTtt()}
+            <Nav label={t('back')} onPress={backToGames} />
           </ScrollView>
         )}
 
@@ -2846,7 +3169,7 @@ export default function App() {
                 {Object.keys(groupList).map((k) => ({ ...groupList[k], gid: k })).sort((a, b) => (b.t || 0) - (a.t || 0)).map((g) => (
                   <View key={g.gid}>
                     {chatRow({
-                      rowKey: g.gid, emoji: '👥', title: g.name, sub: 'Tap karke chat kholo',
+                      rowKey: g.gid, uri: grpPics[g.gid], emoji: '👥', title: g.name, sub: 'Tap karke chat kholo', getHd: grpHdFor(g),
                       onPress: () => openGroup(g), onMore: () => setFriendMenu(friendMenu === g.gid ? null : g.gid),
                     })}
                     {friendMenu === g.gid && (
@@ -2871,10 +3194,10 @@ export default function App() {
           <Nav label={t('back')} onPress={closeGroup} />
         </>) : (<>
           <View style={s.dmHead}>
-            <View style={s.avWrap}><Text style={{ fontSize: 26 }}>👥</Text></View>
+            <View style={s.avWrap}><Pic uri={grpPhoto} emoji="👥" size={54} name={grp.name} getHd={grpHdLoader} /></View>
             <TouchableOpacity style={{ flex: 1, marginLeft: 10 }} onPress={() => { setGrpInfo(!grpInfo); setGrpConfirm(''); }}>
               <Text numberOfLines={1} style={[s.code2, { color: th.accent2, marginBottom: 0, fontSize: 20 }]}>{grp.name}</Text>
-              <Text style={s.cardS}>{Object.keys(grpMembers).length} members • info ke liye tap karo</Text>
+              <Text style={s.cardS}>{Object.keys(grpMembers).length} members{(() => { const n = Object.keys(grpMembers).filter((u) => (u === myUid ? true : isOnline(presMap[u]))).length; return n ? ' • ' + n + ' online' : ''; })()} • info ke liye tap karo</Text>
             </TouchableOpacity>
           </View>
           {grpInfo && (
@@ -2884,10 +3207,17 @@ export default function App() {
               <View style={s.miniRow}>
                 <Mini label="📋 Code copy" onPress={() => copyText(grp.code)} />
                 <Mini label="📤 Share" onPress={shareGroupCode} />
+                <Mini label="📷 Group photo" onPress={pickGroupPhoto} />
               </View>
               <Text style={[s.cardT, { color: th.accent2 }]}>Members</Text>
               {Object.keys(grpMembers).map((uid) => (
-                <Text key={uid} style={s.cardS}>{avLbl(grpMembers[uid].avatar) + grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '')}</Text>
+                <View key={uid} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
+                  <Pic uri={pics[uid]} emoji={grpMembers[uid].avatar} size={34} name={grpMembers[uid].name} getHd={hdOf(uid)} />
+                  <View style={{ marginLeft: 10 }}>
+                    <Text style={s.cardT}>{grpMembers[uid].name + (grpMeta && grpMeta.owner === uid ? '  👑' : '') + (uid === myUid ? ' (You)' : '')}</Text>
+                    {uid !== myUid && !!presText(presMap[uid]) && <Text style={[s.cardS, isOnline(presMap[uid]) ? { color: '#25d366' } : null]}>{presText(presMap[uid])}</Text>}
+                  </View>
+                </View>
               ))}
               <View style={s.miniRow}>
                 <Mini label={grpConfirm === 'leave' ? 'Pakka chhodna hai?' : '🚪 Group chhodo'} onPress={leaveGroupForever} />
@@ -2929,8 +3259,11 @@ export default function App() {
 
         {screen === 'dm' && dmFriend && (subtle ? (<>
           <View style={s.dmHead}>
-            <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} name={(dmProf && dmProf.name) || dmFriend.name || dmFriend.username} />
-            <Text style={[s.code2, { color: th.accent2, marginLeft: 10, marginBottom: 0, flex: 1 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+            <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} name={(dmProf && dmProf.name) || dmFriend.name || dmFriend.username} getHd={hdOf(dmFriend.uid)} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[s.code2, { color: th.accent2, marginBottom: 0 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+              {!!presText(presMap[dmFriend.uid]) && <Text style={[s.cardS, isOnline(presMap[dmFriend.uid]) ? { color: '#25d366' } : null]}>{presText(presMap[dmFriend.uid])}</Text>}
+            </View>
             {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
             <TouchableOpacity style={s.attachBtn} onPress={() => setDmMenu(dmMenu ? '' : 'menu')}><Text style={s.bt}>⋮</Text></TouchableOpacity>
           </View>
@@ -3003,6 +3336,10 @@ export default function App() {
               <Text style={[s.sm, { marginRight: 12 }]}>{t('notifications')}</Text>
               <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} />
             </View>
+            <View style={s.setRow}>
+              <Text style={[s.sm, { marginRight: 12 }]}>Last seen / online dikhao</Text>
+              <Switch value={showSeen} onValueChange={toggleSeen} />
+            </View>
             <Text style={s.sm}>🌐 Language</Text>
             <View style={s.miniRow}>
               {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => changeLang(l[0])} />)}
@@ -3017,6 +3354,7 @@ export default function App() {
                 </View>
               ))}
             </>)}
+            <Nav label="📤 App share karo" onPress={shareApp} />
             <Nav label="📄 Privacy Policy" onPress={() => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e')} />
             {!delConfirm ? <Nav label="🗑️ Account delete" onPress={() => setDelConfirm(true)} /> : (<>
               <Text style={s.sm}>Pakka? Aapka account aur data hamesha ke liye delete ho jayega.</Text>
@@ -3038,7 +3376,8 @@ export default function App() {
       </>)}
       {!!viewer && (
         <TouchableOpacity activeOpacity={1} onPress={() => setViewer(null)} style={s.viewerBg}>
-          <RNImage source={{ uri: viewer }} style={s.viewerImg} resizeMode="contain" />
+          <RNImage source={{ uri: viewerHd && viewerHd !== 'none' ? viewerHd : viewer.uri }} style={s.viewerImg} resizeMode="contain" />
+          {!!viewer.getHd && viewerHd === '' && <Text style={s.sm}>HD load ho rahi hai...</Text>}
           <Text style={s.viewerClose}>✕  Band karo</Text>
         </TouchableOpacity>
       )}
@@ -3104,6 +3443,10 @@ const s = StyleSheet.create({
   cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
   badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  onDot: { position: 'absolute', right: 1, bottom: 1, width: 14, height: 14, borderRadius: 7, backgroundColor: '#25d366', borderWidth: 2, borderColor: '#1a0a12' },
+  tttGrid: { marginVertical: 10 },
+  tttCell: { width: 92, height: 92, margin: 4, borderRadius: 16, backgroundColor: '#ffffff14', borderWidth: 1.5, borderColor: '#ffffff30', alignItems: 'center', justifyContent: 'center' },
+  tttMark: { fontSize: 48, fontWeight: '800' },
   viewerBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000000f2', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
   viewerImg: { width: '100%', height: '80%' },
   viewerClose: { color: '#fff', fontSize: 16, marginTop: 16 },
