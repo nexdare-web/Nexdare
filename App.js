@@ -579,6 +579,156 @@ const tttApply = (g, i, sym) => {
   if (r.w === 'draw') scores.draw++; else if (r.w === 'X') scores.you++; else scores.cpu++;
   return { ...g, board, status: r.w === 'draw' ? 'draw' : 'win', winner: r.w, line: r.line, scores };
 };
+// ---- Wallpaper themes ----
+const rngOf = (seed) => () => {
+  seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+const HEART_PATH = 'M0 8 C-14 -4 -10 -16 0 -9 C10 -16 14 -4 0 8Z';
+const wallSvg = (w) => {
+  const W = 720; const H = 1560;
+  const R = rngOf(w.seed || 7);
+  const rr = (a, b) => a + R() * (b - a);
+  const f0 = (n) => n.toFixed(0);
+  const defs = '<defs><linearGradient id="g" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="' + w.c1 + '"/><stop offset="0.55" stop-color="' + w.c2 + '"/><stop offset="1" stop-color="' + w.c3 + '"/></linearGradient>'
+    + '<filter id="b" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="45"/></filter>'
+    + '<filter id="s" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6"/></filter></defs>';
+  let o = '<rect width="720" height="1560" fill="url(#g)"/>';
+  const stars = (n) => { for (let i = 0; i < n; i++) o += '<circle cx="' + f0(rr(0, W)) + '" cy="' + f0(rr(0, H * 0.7)) + '" r="' + rr(0.6, 2.2).toFixed(1) + '" fill="#fff" opacity="' + rr(0.3, 0.95).toFixed(2) + '"/>'; };
+  const moon = () => { o += '<circle cx="560" cy="240" r="120" fill="' + w.c4 + '" opacity="0.35" filter="url(#b)"/><circle cx="560" cy="240" r="60" fill="#fff" opacity="0.92"/>'; };
+  const t = w.type;
+  if (t === 'bokeh') {
+    for (let i = 0; i < 18; i++) o += '<circle cx="' + f0(rr(0, W)) + '" cy="' + f0(rr(0, H)) + '" r="' + f0(rr(30, 130)) + '" fill="' + (i % 2 ? w.c4 : w.c5) + '" opacity="' + rr(0.12, 0.34).toFixed(2) + '" filter="url(#s)"/>';
+  } else if (t === 'stars') {
+    stars(160); moon();
+  } else if (t === 'waves') {
+    if (w.stars) stars(70);
+    for (let i = 0; i < 6; i++) {
+      const y = 760 + i * 130;
+      o += '<path d="M0 ' + y + ' C180 ' + (y - 80) + ' 300 ' + (y + 80) + ' 480 ' + y + ' S700 ' + (y - 40) + ' 720 ' + y + ' L720 1560 L0 1560 Z" fill="' + w.c4 + '" opacity="' + (0.1 + i * 0.07).toFixed(2) + '"/>';
+    }
+  } else if (t === 'hearts') {
+    for (let i = 0; i < 42; i++) o += '<path transform="translate(' + f0(rr(0, W)) + ' ' + f0(rr(0, H)) + ') rotate(' + f0(rr(-30, 30)) + ') scale(' + rr(0.8, 3.4).toFixed(2) + ')" d="' + HEART_PATH + '" fill="' + w.c4 + '" opacity="' + rr(0.1, 0.35).toFixed(2) + '"/>';
+  } else if (t === 'petals') {
+    for (let i = 0; i < 50; i++) {
+      const cx = rr(0, W); const cy = rr(0, H);
+      o += '<ellipse cx="' + f0(cx) + '" cy="' + f0(cy) + '" rx="' + f0(rr(8, 20)) + '" ry="' + f0(rr(15, 34)) + '" transform="rotate(' + f0(rr(0, 180)) + ' ' + f0(cx) + ' ' + f0(cy) + ')" fill="' + w.c4 + '" opacity="' + rr(0.22, 0.6).toFixed(2) + '"/>';
+    }
+    o += '<circle cx="120" cy="1300" r="180" fill="' + w.c4 + '" opacity="0.18" filter="url(#b)"/>';
+  } else if (t === 'mountains') {
+    o += '<circle cx="360" cy="700" r="150" fill="' + w.c4 + '" opacity="0.55" filter="url(#b)"/><circle cx="360" cy="700" r="90" fill="' + w.c5 + '" opacity="0.9"/>';
+    for (let i = 0; i < 4; i++) {
+      const base = 930 + i * 150;
+      let d = 'M0 1560 L0 ' + f0(base - rr(40, 200));
+      for (let x = 90; x <= 720; x += 90) d += ' L' + x + ' ' + f0(base - rr(40, 200));
+      d += ' L720 1560 Z';
+      o += '<path d="' + d + '" fill="' + w.c6 + '" opacity="' + (0.3 + i * 0.2).toFixed(2) + '"/>';
+    }
+  } else if (t === 'aurora') {
+    stars(w.stars ? 120 : 60);
+    const cols = [w.c4, w.c5, w.c6];
+    for (let i = 0; i < 3; i++) {
+      const y = 420 + i * 230;
+      o += '<ellipse cx="360" cy="' + y + '" rx="430" ry="75" fill="' + cols[i] + '" opacity="0.5" transform="rotate(-18 360 ' + y + ')" filter="url(#b)"/>';
+    }
+  } else if (t === 'neon') {
+    o += '<circle cx="360" cy="780" r="170" fill="' + w.c4 + '" opacity="0.85"/><rect x="0" y="900" width="720" height="660" fill="' + w.c3 + '"/>';
+    o += '<ellipse cx="360" cy="900" rx="420" ry="40" fill="' + w.c5 + '" opacity="0.5" filter="url(#b)"/>';
+    for (let k = 1; k <= 9; k++) o += '<line x1="0" y1="' + f0(900 + k * k * 8) + '" x2="720" y2="' + f0(900 + k * k * 8) + '" stroke="' + w.c5 + '" stroke-width="2" opacity="0.55"/>';
+    for (let x = -900; x <= 1620; x += 150) o += '<line x1="360" y1="900" x2="' + x + '" y2="1560" stroke="' + w.c5 + '" stroke-width="2" opacity="0.5"/>';
+  } else if (t === 'city') {
+    if (w.stars) stars(80);
+    o += '<circle cx="520" cy="640" r="150" fill="' + w.c4 + '" opacity="0.5" filter="url(#b)"/><circle cx="520" cy="640" r="70" fill="' + w.c5 + '" opacity="0.9"/>';
+    for (let layer = 0; layer < 3; layer++) {
+      let x = -20;
+      while (x < W) {
+        const bw = rr(50, 115); const bh = rr(220, 560) - layer * 80;
+        o += '<rect x="' + f0(x) + '" y="' + f0(1560 - bh) + '" width="' + f0(bw) + '" height="' + f0(bh) + '" fill="' + w.c6 + '" opacity="' + (0.35 + layer * 0.3).toFixed(2) + '"/>';
+        if (layer === 2) {
+          for (let wy = 1560 - bh + 18; wy < 1530; wy += 36) for (let wx = x + 10; wx < x + bw - 14; wx += 24) if (R() > 0.55) o += '<rect x="' + f0(wx) + '" y="' + f0(wy) + '" width="9" height="14" fill="' + w.c5 + '" opacity="0.8"/>';
+        }
+        x += bw + rr(2, 14);
+      }
+    }
+  } else if (t === 'dunes') {
+    o += '<circle cx="360" cy="660" r="140" fill="' + w.c4 + '" opacity="0.6" filter="url(#b)"/><circle cx="360" cy="660" r="80" fill="' + w.c5 + '" opacity="0.95"/>';
+    for (let i = 0; i < 5; i++) {
+      const y = 900 + i * 120;
+      o += '<path d="M0 ' + y + ' C150 ' + (y - 90) + ' 330 ' + (y + 60) + ' 480 ' + (y - 30) + ' S680 ' + (y + 20) + ' 720 ' + (y - 20) + ' L720 1560 L0 1560 Z" fill="' + w.c6 + '" opacity="' + (0.25 + i * 0.15).toFixed(2) + '"/>';
+    }
+  } else if (t === 'snow') {
+    stars(50);
+    for (let i = 0; i < 90; i++) o += '<circle cx="' + f0(rr(0, W)) + '" cy="' + f0(rr(0, H)) + '" r="' + rr(1.5, 6).toFixed(1) + '" fill="#fff" opacity="' + rr(0.3, 0.9).toFixed(2) + '"/>';
+    for (let i = 0; i < 30; i++) o += '<circle cx="' + f0(rr(0, W)) + '" cy="' + f0(rr(0, H)) + '" r="' + f0(rr(8, 22)) + '" fill="#fff" opacity="0.22" filter="url(#s)"/>';
+    for (let x = 30; x < W; x += 110) {
+      const tip = 1180 - rr(0, 140);
+      o += '<polygon points="' + x + ',1560 ' + (x + 45) + ',' + f0(tip) + ' ' + (x + 90) + ',1560" fill="' + w.c6 + '" opacity="0.7"/>';
+    }
+    o += '<path d="M0 1420 C180 1350 360 1460 720 1380 L720 1560 L0 1560 Z" fill="#fff" opacity="0.22"/>';
+  } else if (t === 'geo') {
+    const cols = [w.c4, w.c5, w.c6];
+    for (let i = 0; i < 34; i++) {
+      const cx = rr(0, W); const cy = rr(0, H); const sz = rr(90, 260);
+      let pts = '';
+      for (let k = 0; k < 3; k++) pts += f0(cx + rr(-sz, sz)) + ',' + f0(cy + rr(-sz, sz)) + ' ';
+      o += '<polygon points="' + pts + '" fill="' + cols[i % 3] + '" opacity="' + rr(0.08, 0.34).toFixed(2) + '"/>';
+    }
+  } else if (t === 'rain') {
+    for (let i = 0; i < 10; i++) o += '<circle cx="' + f0(rr(0, W)) + '" cy="' + f0(rr(700, H)) + '" r="' + f0(rr(30, 110)) + '" fill="' + (i % 2 ? w.c4 : w.c5) + '" opacity="' + rr(0.1, 0.26).toFixed(2) + '" filter="url(#b)"/>';
+    for (let i = 0; i < 130; i++) {
+      const x = rr(0, W); const y = rr(0, H);
+      o += '<line x1="' + f0(x) + '" y1="' + f0(y) + '" x2="' + f0(x - 9) + '" y2="' + f0(y + 38) + '" stroke="' + w.c6 + '" stroke-width="1.6" opacity="' + rr(0.15, 0.5).toFixed(2) + '"/>';
+    }
+  } else if (t === 'forest') {
+    if (w.stars) stars(50);
+    moon();
+    for (let i = 0; i < 3; i++) {
+      for (let x = -40; x < W; x += 70) {
+        const tip = 900 + i * 130 - rr(0, 170);
+        o += '<polygon points="' + x + ',1560 ' + (x + 40) + ',' + f0(tip) + ' ' + (x + 80) + ',1560" fill="' + w.c6 + '" opacity="' + (0.3 + i * 0.25).toFixed(2) + '"/>';
+      }
+    }
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1560" preserveAspectRatio="xMidYMid slice">' + defs + o + '</svg>';
+};
+const WALL_CACHE = {};
+const wallUri = (w) => {
+  const k = JSON.stringify(w);
+  if (!WALL_CACHE[k]) WALL_CACHE[k] = 'data:image/svg+xml;utf8,' + encodeURIComponent(wallSvg(w));
+  return WALL_CACHE[k];
+};
+const SKINS = {
+  rose: { name: 'Rose Garden 🌹', bg: '#2a0a18', accent: '#ff4d8d', accent2: '#ffd1e3', glow: '#ff4d8d', glow2: '#8a1c4d', e: ['🌹', '💖', '✨'], wall: { type: 'petals', seed: 3, c1: '#3a0b22', c2: '#6b1238', c3: '#1f0612', c4: '#ff8fb8' } },
+  orchid: { name: 'Orchid Dream 💜', bg: '#24092a', accent: '#c850c0', accent2: '#f3c9ef', glow: '#c850c0', glow2: '#ff4d8d', e: ['💜', '🦋', '✨'], wall: { type: 'bokeh', seed: 5, c1: '#2a0b3a', c2: '#4b1565', c3: '#14051c', c4: '#e08cff', c5: '#ff7ac8' } },
+  peach: { name: 'Peach Sunset 🍑', bg: '#2b0f14', accent: '#ff7a8a', accent2: '#ffdadf', glow: '#ff7a8a', glow2: '#b0235a', e: ['🍑', '🌅', '✨'], wall: { type: 'mountains', seed: 11, c1: '#5a1d3a', c2: '#d9566a', c3: '#ffb08a', c4: '#ffd9a0', c5: '#fff2c8', c6: '#4a1530' } },
+  wine: { name: 'Wine Night 🍷', bg: '#220810', accent: '#d6336c', accent2: '#fbc4d4', glow: '#d6336c', glow2: '#5c0f2b', e: ['🍷', '🕯️', '✨'], wall: { type: 'bokeh', seed: 8, c1: '#2b0a14', c2: '#5a1226', c3: '#14040a', c4: '#ff5c8a', c5: '#ffb36b' } },
+  night: { name: 'Midnight Stars 🌙', bg: '#150f2e', accent: '#ff6fa5', accent2: '#e0d4ff', glow: '#7c5cff', glow2: '#ff6fa5', e: ['🌙', '⭐', '✨'], wall: { type: 'stars', seed: 21, c1: '#0b0820', c2: '#1c1450', c3: '#3a1d6e', c4: '#9d8cff' } },
+  ocean: { name: 'Ocean Waves 🌊', bg: '#08202e', accent: '#2bb7e8', accent2: '#cdeeff', glow: '#2bb7e8', glow2: '#0d4f8a', e: ['🌊', '🐚', '✨'], wall: { type: 'waves', seed: 4, c1: '#06304a', c2: '#0b5c86', c3: '#052033', c4: '#7fe0ff' } },
+  aurora: { name: 'Aurora ✨', bg: '#071a1a', accent: '#3ddc97', accent2: '#d2ffe9', glow: '#3ddc97', glow2: '#7c5cff', e: ['🌌', '💚', '✨'], wall: { type: 'aurora', seed: 13, c1: '#04101f', c2: '#081c2e', c3: '#0b2b3a', c4: '#3ddc97', c5: '#7c5cff', c6: '#4dd0ff' } },
+  sakura: { name: 'Cherry Blossom 🌸', bg: '#2a0f1c', accent: '#ff8fb1', accent2: '#ffe0ea', glow: '#ff8fb1', glow2: '#c2487a', e: ['🌸', '🌷', '✨'], wall: { type: 'petals', seed: 17, c1: '#3b1327', c2: '#7a2a52', c3: '#a8406f', c4: '#ffc2d6' } },
+  galaxy: { name: 'Galaxy 🌌', bg: '#0f0a24', accent: '#b388ff', accent2: '#e9dcff', glow: '#7c4dff', glow2: '#ff4da6', e: ['🌌', '🪐', '✨'], wall: { type: 'aurora', stars: true, seed: 29, c1: '#07041a', c2: '#140a38', c3: '#2a0f52', c4: '#7c4dff', c5: '#ff4da6', c6: '#4d8bff' } },
+  neon: { name: 'Neon City 🌆', bg: '#12082a', accent: '#ff2bd6', accent2: '#c9f6ff', glow: '#00e5ff', glow2: '#ff2bd6', e: ['🌆', '⚡', '✨'], wall: { type: 'neon', seed: 2, c1: '#0d0524', c2: '#2a0b5e', c3: '#14052e', c4: '#ff4fd8', c5: '#00e5ff' } },
+  forest: { name: 'Forest Night 🌲', bg: '#0b1f14', accent: '#4cc275', accent2: '#d9ffe6', glow: '#4cc275', glow2: '#146b3a', e: ['🌲', '🍃', '✨'], wall: { type: 'forest', stars: true, seed: 31, c1: '#06140e', c2: '#0f3322', c3: '#1b5a3a', c4: '#d9ffe6', c6: '#04100a' } },
+  gold: { name: 'Golden Hour 🌅', bg: '#2a1a08', accent: '#ffb347', accent2: '#ffe9c2', glow: '#ffb347', glow2: '#b8531c', e: ['🌅', '🧡', '✨'], wall: { type: 'mountains', seed: 19, c1: '#3a1a10', c2: '#c2602a', c3: '#ffc36b', c4: '#ffe08a', c5: '#fff6d0', c6: '#2e1208' } },
+  lavender: { name: 'Lavender Mist 💐', bg: '#1d1030', accent: '#a98bff', accent2: '#ece3ff', glow: '#a98bff', glow2: '#6a3fb8', e: ['💐', '🦋', '✨'], wall: { type: 'bokeh', seed: 23, c1: '#241446', c2: '#4a2f86', c3: '#150c2a', c4: '#c9b3ff', c5: '#ff9ed8' } },
+  candy: { name: 'Candy Pop 🍭', bg: '#2a0c26', accent: '#ff6ec7', accent2: '#fff0fa', glow: '#ff6ec7', glow2: '#6ec7ff', e: ['🍭', '💖', '✨'], wall: { type: 'hearts', seed: 9, c1: '#3a0f3a', c2: '#7a2a72', c3: '#2a0c4a', c4: '#ff9de0' } },
+  ice: { name: 'Ice Queen ❄️', bg: '#0b1c2a', accent: '#7fd6ff', accent2: '#e8f8ff', glow: '#7fd6ff', glow2: '#4d8bff', e: ['❄️', '💙', '✨'], wall: { type: 'waves', stars: true, seed: 37, c1: '#0a1a2e', c2: '#16406a', c3: '#0d2744', c4: '#cfeeff' } },
+  hearts: { name: 'Love Hearts 💘', bg: '#2a0508', accent: '#ff3d57', accent2: '#ffd0d6', glow: '#ff3d57', glow2: '#7a0f1f', e: ['💘', '❤️', '💋'], wall: { type: 'hearts', seed: 15, c1: '#3a0610', c2: '#7a1020', c3: '#2a0508', c4: '#ff5a73' } },
+  ember: { name: 'Ember 🔥', bg: '#240a05', accent: '#ff6b3d', accent2: '#ffe0d2', glow: '#ff6b3d', glow2: '#8a2008', e: ['🔥', '🧡', '✨'], wall: { type: 'bokeh', seed: 27, c1: '#2a0a04', c2: '#6a1c08', c3: '#1a0602', c4: '#ff7a3d', c5: '#ffc04d' } },
+  mint: { name: 'Mint Breeze 🍃', bg: '#0a2420', accent: '#38d9c0', accent2: '#d6fff7', glow: '#38d9c0', glow2: '#0f7a6a', e: ['🍃', '💚', '✨'], wall: { type: 'waves', seed: 6, c1: '#06302a', c2: '#0f6a5c', c3: '#07241f', c4: '#9ff5e4' } },
+  skyline: { name: 'Midnight City 🏙️', bg: '#0a0f24', accent: '#4da3ff', accent2: '#d6e8ff', glow: '#4da3ff', glow2: '#7c5cff', e: ['🏙️', '🌃', '✨'], r: 10, wall: { type: 'city', seed: 41, stars: true, c1: '#050a1f', c2: '#14234f', c3: '#0a1230', c4: '#4da3ff', c5: '#ffd166', c6: '#05091c' } },
+  sunsetcity: { name: 'Sunset City 🌇', bg: '#2a0f1f', accent: '#ff7a45', accent2: '#ffe1cf', glow: '#ff7a45', glow2: '#c2185b', e: ['🌇', '🧡', '✨'], wall: { type: 'city', seed: 52, c1: '#3a1030', c2: '#c2185b', c3: '#ff8a50', c4: '#ffb27a', c5: '#fff0c8', c6: '#2a0a24' } },
+  desert: { name: 'Desert Gold 🏜️', bg: '#2a1608', accent: '#ffb347', accent2: '#ffecc7', glow: '#ffb347', glow2: '#b8531c', e: ['🏜️', '🌵', '✨'], wall: { type: 'dunes', seed: 5, c1: '#4a2310', c2: '#c76a2a', c3: '#2a1206', c4: '#ffcf7a', c5: '#fff3c9', c6: '#5c2a0c' } },
+  rosedunes: { name: 'Rose Dunes 🌷', bg: '#2a0c1c', accent: '#ff6f9c', accent2: '#ffe3ee', glow: '#ff6f9c', glow2: '#b23a6e', e: ['🌷', '💗', '✨'], wall: { type: 'dunes', seed: 9, c1: '#3a0f2a', c2: '#b23a6e', c3: '#240a1a', c4: '#ff9ec0', c5: '#ffe3ee', c6: '#4a1030' } },
+  snowfall: { name: 'Snowfall ⛄', bg: '#0c1a2c', accent: '#9fd8ff', accent2: '#f0f9ff', glow: '#9fd8ff', glow2: '#5b8cff', e: ['⛄', '❄️', '✨'], wall: { type: 'snow', seed: 8, c1: '#0a1830', c2: '#1d3f6e', c3: '#0c1a2c', c4: '#ffffff', c6: '#0a1f3a' } },
+  crystal: { name: 'Crystal Geo 💎', bg: '#0d1030', accent: '#7c9cff', accent2: '#e1e8ff', glow: '#7c9cff', glow2: '#e040fb', e: ['💎', '🔷', '✨'], r: 8, wall: { type: 'geo', seed: 13, c1: '#0a0d2e', c2: '#26307a', c3: '#120a30', c4: '#7c9cff', c5: '#e040fb', c6: '#4dd0e1' } },
+  lowpoly: { name: 'Low-Poly Teal 🔷', bg: '#06201f', accent: '#26d0b4', accent2: '#d3fff6', glow: '#26d0b4', glow2: '#0d7a8a', e: ['🔷', '💚', '✨'], r: 8, wall: { type: 'geo', seed: 29, c1: '#041a1a', c2: '#0c5560', c3: '#06201f', c4: '#26d0b4', c5: '#7ef0dc', c6: '#0d7a8a' } },
+  rainy: { name: 'Rainy Night 🌧️', bg: '#0b1220', accent: '#6aa8ff', accent2: '#dbe9ff', glow: '#6aa8ff', glow2: '#3a4a8a', e: ['🌧️', '☔', '✨'], wall: { type: 'rain', seed: 19, c1: '#070d1a', c2: '#1a2b4d', c3: '#0b1220', c4: '#9cc3ff', c5: '#ff9ec0', c6: '#4d6fb3' } },
+  amoled: { name: 'Pure Black ⚫', bg: '#000000', accent: '#ff4d8d', accent2: '#ffd1e3', glow: '#ff4d8d', glow2: '#7c5cff', e: ['⚫', '💖', '✨'], wall: { type: 'stars', seed: 77, c1: '#000000', c2: '#05050a', c3: '#000000', c4: '#ffffff' } },
+  cosmic: { name: 'Cosmic Love 💫', bg: '#10061f', accent: '#ff5fa2', accent2: '#ffd6ea', glow: '#ff5fa2', glow2: '#7c4dff', e: ['💫', '💞', '✨'], wall: { type: 'hearts', seed: 61, c1: '#12062a', c2: '#3a0f5c', c3: '#10061f', c4: '#ff5fa2', c5: '#b388ff' } },
+};
 // ===== GROUP CHAT HELPERS END =====
 
 // ===== GAMES + COUPLE DATA =====
@@ -798,6 +948,7 @@ export default function App() {
   const [viewer, setViewer] = useState(null);
   const [viewerHd, setViewerHd] = useState('');
   const [langOpen, setLangOpen] = useState(false);
+  const [wallDim, setWallDim] = useState(() => { try { return localStorage.getItem('nexdare_walldim') || 'normal'; } catch (e) { return 'normal'; } });
   const [myPhotoHd, setMyPhotoHd] = useState('');
   const [presMap, setPresMap] = useState({});
   const [showSeen, setShowSeen] = useState(() => { try { return localStorage.getItem('nexdare_showseen') !== '0'; } catch (e) { return true; } });
@@ -851,13 +1002,7 @@ export default function App() {
     if (!translations[code]) { await autoTranslate(code); bump((n) => n + 1); }
   };
   useEffect(() => { if (uiLang !== 'en' && !translations[uiLang]) autoTranslate(uiLang).then(() => bump((n) => n + 1)); }, []);
-  const skins = {
-    rose: { name: 'Rose 🌹', bg: '#2a0a18', accent: '#ff4d8d', accent2: '#ffd1e3', glow: '#ff4d8d', glow2: '#8a1c4d' },
-    orchid: { name: 'Orchid 💜', bg: '#24092a', accent: '#c850c0', accent2: '#f3c9ef', glow: '#c850c0', glow2: '#ff4d8d' },
-    peach: { name: 'Peach 🍑', bg: '#2b0f14', accent: '#ff7a8a', accent2: '#ffdadf', glow: '#ff7a8a', glow2: '#b0235a' },
-    wine: { name: 'Wine 🍷', bg: '#220810', accent: '#d6336c', accent2: '#fbc4d4', glow: '#d6336c', glow2: '#5c0f2b' },
-    night: { name: 'Midnight 🌙', bg: '#150f2e', accent: '#ff6fa5', accent2: '#e0d4ff', glow: '#7c5cff', glow2: '#ff6fa5' },
-  };
+  const skins = SKINS;
 
   useEffect(() => {
     try {
@@ -2401,18 +2546,18 @@ export default function App() {
   if (skin && skins[skin]) th = { ...th, ...skins[skin] };
 
   const Btn = ({ label, onPress, big }) => (
-    <TouchableOpacity style={[s.b, { backgroundColor: th.accent, shadowColor: th.accent }, big ? s.bBig : null]}
+    <TouchableOpacity style={[s.b, { backgroundColor: th.accent, shadowColor: th.accent }, big ? s.bBig : null, th.r != null ? { borderRadius: th.r } : null]}
       onPress={() => { playSound('click', soundOn); onPress && onPress(); }}>
       <Text style={[s.bt, big ? s.btBig : null]}>{label}</Text>
     </TouchableOpacity>
   );
   const Nav = ({ label, onPress }) => (
-    <TouchableOpacity style={[s.nav, { borderColor: th.accent + '88' }]} onPress={() => { playSound('click', soundOn); onPress && onPress(); }}>
+    <TouchableOpacity style={[s.nav, { borderColor: th.accent + '88' }, th.r != null ? { borderRadius: th.r } : null]} onPress={() => { playSound('click', soundOn); onPress && onPress(); }}>
       <Text style={[s.navt, { color: th.accent2 }]}>{label}</Text>
     </TouchableOpacity>
   );
   const Mini = ({ label, onPress }) => (
-    <TouchableOpacity style={[s.mini, { borderColor: th.accent + '88' }]} onPress={() => { playSound('click', soundOn); onPress && onPress(); }}>
+    <TouchableOpacity style={[s.mini, { borderColor: th.accent + '88' }, th.r != null ? { borderRadius: th.r } : null]} onPress={() => { playSound('click', soundOn); onPress && onPress(); }}>
       <Text style={[s.miniT, { color: th.accent2 }]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -2626,6 +2771,23 @@ export default function App() {
       })())}
     </>);
   };
+  const setItem = ({ key, icon, title, sub, right, onPress, danger, last }) => (
+    <TouchableOpacity key={key || title} activeOpacity={onPress ? 0.6 : 1} onPress={onPress}
+      style={[s.setItem, last ? { borderBottomWidth: 0 } : null]}>
+      <View style={[s.setIcon, { backgroundColor: (danger ? '#ff4d4d' : th.accent) + '33' }]}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={[s.setTitle, danger ? { color: '#ff7b7b' } : null]}>{title}</Text>
+        {!!sub && <Text style={s.setSub}>{sub}</Text>}
+      </View>
+      {right !== undefined ? right : (onPress ? <Text style={s.setArrow}>›</Text> : null)}
+    </TouchableOpacity>
+  );
+  const setGroup = (title, items) => (
+    <View style={{ width: '100%', marginTop: 16 }}>
+      <Text style={[s.setHead, { color: th.accent2 }]}>{title}</Text>
+      <View style={s.setCard}>{items.map((it, i) => setItem({ ...it, last: i === items.length - 1 }))}</View>
+    </View>
+  );
   const pairGate = (content) => {
     if (!subtle) return <Text style={s.sm}>{t('needBrowserChat')}</Text>;
     if (!pal || palPicking) {
@@ -2844,6 +3006,10 @@ export default function App() {
   return (
     <View style={[s.c, { backgroundColor: th.bg }, full ? s.cTop : null]}>
       {!!bgPhoto && <RNImage pointerEvents="none" source={{ uri: bgPhoto }} style={s.bgImg} resizeMode="cover" />}
+      {!bgPhoto && !!skin && !!skins[skin] && !!skins[skin].wall && (<>
+        <RNImage pointerEvents="none" source={{ uri: wallUri(skins[skin].wall) }} style={s.wallImg} resizeMode="cover" />
+        <View pointerEvents="none" style={[s.wallImg, { backgroundColor: th.bg + ({ soft: '99', normal: '59', vivid: '26' }[wallDim] || '59') }]} />
+      </>)}
       <View pointerEvents="none" style={[s.glow, { top: -90, right: -70, backgroundColor: th.glow }]} />
       <View pointerEvents="none" style={[s.glow2, { bottom: -110, left: -80, backgroundColor: th.glow2 }]} />
       {!full && (
@@ -3006,11 +3172,28 @@ export default function App() {
 
         {screen === 'style' && (
           <ScrollView contentContainerStyle={sc}>
-            <Text style={s.sm}>Theme chuno, har jagah badal jayegi 💞</Text>
-            <View style={s.miniRow}>
-              {Object.keys(skins).map((k) => <Mini key={k} label={(skin === k ? '✅ ' : '') + skins[k].name} onPress={() => { setSkin(k); localStorage.setItem('nexdare_skin', k); }} />)}
-              <Mini label="Auto" onPress={() => { setSkin(''); localStorage.removeItem('nexdare_skin'); }} />
+            <Text style={s.sm}>Wallpaper theme chuno: wallpaper, colours aur button ka look sab badal jayega 💞</Text>
+            <View style={s.themeGrid}>
+              {Object.keys(skins).map((k) => (
+                <TouchableOpacity key={k} activeOpacity={0.8} style={[s.themeCard, skin === k ? { borderColor: skins[k].accent, borderWidth: 3 } : null]}
+                  onPress={() => { setSkin(k); setBgPhoto(''); try { localStorage.setItem('nexdare_skin', k); localStorage.removeItem('nexdare_bgphoto'); } catch (e) {} playSound('click', soundOn); }}>
+                  <RNImage pointerEvents="none" source={{ uri: wallUri(skins[k].wall) }} style={s.wallImg} resizeMode="cover" />
+                  <View style={[s.themeDot, { backgroundColor: skins[k].accent }]} />
+                  <View style={s.themeLabel}><Text style={s.themeName}>{(skin === k ? '✅ ' : '') + skins[k].name}</Text></View>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity activeOpacity={0.8} style={[s.themeCard, { backgroundColor: '#ffffff14' }, !skin ? { borderColor: '#fff', borderWidth: 3 } : null]}
+                onPress={() => { setSkin(''); try { localStorage.removeItem('nexdare_skin'); } catch (e) {} }}>
+                <View style={s.themeLabel}><Text style={s.themeName}>{(!skin ? '✅ ' : '') + 'Auto (default) 🎨'}</Text></View>
+              </TouchableOpacity>
             </View>
+            <Text style={s.sm}>Wallpaper brightness</Text>
+            <View style={s.miniRow}>
+              {[['soft', '🌙 Soft'], ['normal', '☀️ Normal'], ['vivid', '🌈 Vivid']].map((d) => (
+                <Mini key={d[0]} label={(wallDim === d[0] ? '✅ ' : '') + d[1]} onPress={() => { setWallDim(d[0]); try { localStorage.setItem('nexdare_walldim', d[0]); } catch (e) {} }} />
+              ))}
+            </View>
+            {!!bgPhoto && !!skin && <Text style={s.sm}>Abhi tumhari apni background photo lagi hai, wo wallpaper ke upar dikhegi. Wallpaper dekhne ke liye neeche "Hatao" dabao.</Text>}
             <Text style={s.sm}>Apni photo (profile aur chats me dikhegi)</Text>
             <Pic uri={myPhoto} emoji={profile.avatar} size={70} name={myLetterName} getHd={myPhotoHd ? async () => myPhotoHd : undefined} />
             <Mini label="📷 Apni photo lagao" onPress={() => pickPhoto('me')} />
@@ -3160,10 +3343,16 @@ export default function App() {
         {screen === 'groups' && !grp && (subtle ? (
           <ScrollView contentContainerStyle={sc}>
             <Text style={[s.q, { color: th.accent2 }]}>Group Chat 👥</Text>
-            <TextInput style={s.i} placeholder="Naye group ka naam" placeholderTextColor={PH} value={grpNewName} onChangeText={setGrpNewName} />
-            <Btn label="➕ Group banao" onPress={createGroup} />
-            <TextInput style={s.i} placeholder="Group code" placeholderTextColor={PH} autoCapitalize="none" value={grpJoinCode} onChangeText={setGrpJoinCode} />
-            <Btn label="🔑 Group join karo" onPress={joinGroup} />
+            <View style={s.joinRow}>
+              <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Naye group ka naam" placeholderTextColor={PH} value={grpNewName} onChangeText={setGrpNewName} onSubmitEditing={createGroup} />
+              <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={createGroup}><Text style={s.roundT}>➕</Text></TouchableOpacity>
+            </View>
+            <Text style={s.hint}>Naam likho aur ➕ dabao: naya group ban jayega</Text>
+            <View style={s.joinRow}>
+              <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Group code" placeholderTextColor={PH} autoCapitalize="none" value={grpJoinCode} onChangeText={setGrpJoinCode} onSubmitEditing={joinGroup} />
+              <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={joinGroup}><Text style={s.roundT}>🔑</Text></TouchableOpacity>
+            </View>
+            <Text style={s.hint}>Dost ka code daalo aur 🔑 dabao: group join ho jayega</Text>
             <Text style={[s.q, { color: th.accent2 }]}>Mere groups</Text>
             {Object.keys(groupList).length === 0 ? <Text style={s.sm}>Abhi koi group nahi. Naya banao ya code se join karo.</Text> : (
               <View style={{ width: '100%' }}>
@@ -3329,46 +3518,40 @@ export default function App() {
 
         {screen === 'settings' && (
           <ScrollView contentContainerStyle={sc}>
-            <View style={s.setRow}>
-              <Text style={[s.sm, { marginRight: 12 }]}>{t('sound')}</Text>
-              <Switch value={soundOn} onValueChange={(v) => { setSoundOn(v); localStorage.setItem('nexdare_sound', v ? '1' : '0'); }} />
-            </View>
-            <View style={s.setRow}>
-              <Text style={[s.sm, { marginRight: 12 }]}>{t('notifications')}</Text>
-              <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} />
-            </View>
-            <View style={s.setRow}>
-              <Text style={[s.sm, { marginRight: 12 }]}>Last seen / online dikhao</Text>
-              <Switch value={showSeen} onValueChange={toggleSeen} />
-            </View>
-            <Nav label={'🌐 All languages: ' + ((LANGS.find((l) => l[0] === uiLang) || [0, 'English'])[1]) + (langOpen ? '  ▴' : '  ▾')} onPress={() => setLangOpen(!langOpen)} />
+            <Text style={[s.q, { color: th.accent2 }]}>{t('settings')}</Text>
+            {setGroup('PREFERENCES', [
+              { icon: '🔊', title: t('sound'), right: <Switch value={soundOn} onValueChange={(v) => { setSoundOn(v); localStorage.setItem('nexdare_sound', v ? '1' : '0'); }} /> },
+              { icon: '🔔', title: t('notifications'), right: <Switch value={notifOn} onValueChange={(v) => { if (v) requestNotif(); else { setNotifOn(false); localStorage.setItem('nexdare_notif', '0'); } }} /> },
+              { icon: '🌐', title: 'Language', right: <Text style={s.setSub}>{((LANGS.find((l) => l[0] === uiLang) || [0, 'English'])[1]) + (langOpen ? '  ▴' : '  ▾')}</Text>, onPress: () => setLangOpen(!langOpen) },
+              { icon: '🎨', title: 'Theme & wallpaper', sub: 'Nexstyle', onPress: () => setScreen('style') },
+            ])}
             {langOpen && (
               <View style={s.miniRow}>
                 {LANGS.map((l) => <Mini key={l[0]} label={(uiLang === l[0] ? '✅ ' : '') + l[1]} onPress={() => { changeLang(l[0]); setLangOpen(false); }} />)}
               </View>
             )}
-            <Text style={s.sm}>🛡️ Safety</Text>
-            {Object.keys(blocks).length > 0 && (<>
-              <Text style={s.sm}>Blocked users:</Text>
-              {Object.keys(blocks).map((k) => (
-                <View key={k} style={s.miniRow}>
-                  <Text style={[s.sm, { alignSelf: 'center', marginRight: 8 }]}>@{blocks[k].username}</Text>
-                  <Mini label="Unblock" onPress={() => unblockUser(k)} />
-                </View>
-              ))}
-            </>)}
-            <Nav label="📤 App share karo" onPress={shareApp} />
-            <Nav label="📄 Privacy Policy" onPress={() => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e')} />
-            {!delConfirm ? <Nav label="🗑️ Account delete" onPress={() => setDelConfirm(true)} /> : (<>
-              <Text style={s.sm}>Pakka? Aapka account aur data hamesha ke liye delete ho jayega.</Text>
-              <Btn label="Haan, delete karo" onPress={deleteAccount} />
-              <Nav label={t('cancel')} onPress={() => setDelConfirm(false)} />
-            </>)}
-            <Btn label={t('logout')} onPress={logout} />
-            {!showClearConfirm ? <Btn label={t('clearData')} onPress={() => setShowClearConfirm(true)} /> : (<>
+            {setGroup('PRIVACY & SAFETY', [
+              { icon: '🟢', title: 'Last seen / online dikhao', sub: 'Band karoge to doosron ka bhi nahi dikhega', right: <Switch value={showSeen} onValueChange={toggleSeen} /> },
+              ...Object.keys(blocks).map((k) => ({ key: 'blk' + k, icon: '🚫', title: '@' + blocks[k].username, sub: 'Blocked', right: <Mini label="Unblock" onPress={() => unblockUser(k)} /> })),
+              { icon: '📄', title: 'Privacy Policy', onPress: () => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e') },
+            ])}
+            {setGroup('SHARE', [
+              { icon: '📤', title: 'App share karo', sub: 'Dost ko Nexdare bhejo', onPress: shareApp },
+            ])}
+            {setGroup('ACCOUNT', [
+              { icon: '🚪', title: t('logout'), onPress: logout },
+              { icon: '🧹', title: t('clearData'), onPress: () => setShowClearConfirm(true) },
+              { icon: '🗑️', title: 'Account delete', danger: true, onPress: () => setDelConfirm(true) },
+            ])}
+            {showClearConfirm && (<>
               <Text style={s.sm}>{t('clearConfirm')}</Text>
               <Btn label={t('yesClear')} onPress={clearAllData} />
               <Nav label={t('cancel')} onPress={() => setShowClearConfirm(false)} />
+            </>)}
+            {delConfirm && (<>
+              <Text style={s.sm}>Pakka? Aapka account aur data hamesha ke liye delete ho jayega.</Text>
+              <Btn label="Haan, delete karo" onPress={deleteAccount} />
+              <Nav label={t('cancel')} onPress={() => setDelConfirm(false)} />
             </>)}
             <Nav label={t('back')} onPress={() => setScreen('home')} />
           </ScrollView>
@@ -3446,6 +3629,23 @@ const s = StyleSheet.create({
   cardS: { color: '#ffffffaa', fontSize: 13, lineHeight: 18 },
   badge: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   badgeT: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  wallImg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' },
+  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: '100%' },
+  themeCard: { width: 150, height: 210, margin: 6, borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#ffffff22', justifyContent: 'flex-end' },
+  themeLabel: { backgroundColor: '#00000088', paddingVertical: 8, paddingHorizontal: 10 },
+  themeName: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  themeDot: { position: 'absolute', top: 10, right: 10, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff' },
+  setHead: { fontSize: 13, fontWeight: '700', letterSpacing: 1.5, marginBottom: 8, marginLeft: 6 },
+  setCard: { backgroundColor: '#ffffff12', borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#ffffff1a' },
+  setItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
+  setIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  setTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  setSub: { color: '#ffffff99', fontSize: 12, marginTop: 2 },
+  setArrow: { color: '#ffffff88', fontSize: 24, marginLeft: 8 },
+  joinRow: { flexDirection: 'row', alignItems: 'center', width: '92%', marginTop: 10 },
+  roundBtn: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
+  roundT: { fontSize: 22, color: '#fff' },
+  hint: { color: '#ffffff88', fontSize: 12, marginTop: 4, marginBottom: 6, textAlign: 'center' },
   onDot: { position: 'absolute', right: 1, bottom: 1, width: 14, height: 14, borderRadius: 7, backgroundColor: '#25d366', borderWidth: 2, borderColor: '#1a0a12' },
   tttGrid: { marginVertical: 10 },
   tttCell: { width: 92, height: 92, margin: 4, borderRadius: 16, backgroundColor: '#ffffff14', borderWidth: 1.5, borderColor: '#ffffff30', alignItems: 'center', justifyContent: 'center' },
