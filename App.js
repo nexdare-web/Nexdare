@@ -902,6 +902,12 @@ const compressImageTo = (dataUrl, max, q) => new Promise((res, rej) => {
 export default function App() {
   const [page, setPage] = useState(1);
   const [screen, setScreen] = useState('home');
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2200);
+    return () => clearTimeout(timer);
+  }, []);
   const [role, setRole] = useState(null);
   const [roomCode, setRoomCode] = useState(null);
   const [room, setRoom] = useState(null);
@@ -3897,6 +3903,29 @@ export default function App() {
           {!!viewer.getHd && viewerHd === '' && <Text style={s.sm}>HD load ho rahi hai...</Text>}
           <Text style={s.viewerClose}>✕  Band karo</Text>
         </TouchableOpacity>
+      )}
+      {showSplash && (
+        <View
+          pointerEvents="auto"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            elevation: 9999,
+            backgroundColor: th.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <RNImage
+            source={{ uri: '/nexdare splash preview.png' }}
+            style={{ width: 280, height: 120 }}
+            resizeMode="contain"
+          />
+        </View>
       )}
     </View>
   );
