@@ -1062,6 +1062,7 @@ export default function App() {
   const [dmPlus, setDmPlus] = useState(false);
   const [nicks, setNicks] = useState({});
   const [nickEdit, setNickEdit] = useState(null);
+  const [nicksShared, setNicksShared] = useState({});
   const [strState, setStrState] = useState('idle');
   const [strRoom, setStrRoom] = useState(null);
   const [strRaw, setStrRaw] = useState({});
@@ -1517,6 +1518,32 @@ export default function App() {
     } catch (e) { setError('Delete nahi hua: ' + e.message); }
     setDmSel(null);
   };
+  const dmClearForMe = () => {
+    if (!dmFriend) return;
+    const h = Array.from(new Set([...dmHidden, ...Object.keys(dmRaw)]));
+    setDmHidden(h);
+    try { localStorage.setItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
+    setDmMenu(''); setDmSel(null);
+    setNotice('Chat tumhare liye clear ho gayi 🧹');
+  };
+  const dmClearForAll = async () => {
+    if (!dmFriend || !currentUser) return;
+    setDmMenu(''); setDmSel(null);
+    try {
+      const cid = dmFriend.chatId;
+      const mine = Object.keys(dmRaw).filter((k) => dmRaw[k] && dmRaw[k].from === currentUser.uid);
+      for (const k of mine) await remove(ref(db, 'dm/' + cid + '/messages/' + k)).catch(() => {});
+      for (const m of dmPlain) { if (m.file && m.from === currentUser.uid) await remove(ref(db, 'dm/' + cid + '/files/' + m.file.id)).catch(() => {}); }
+      const h = Array.from(new Set([...dmHidden, ...Object.keys(dmRaw)]));
+      setDmHidden(h);
+      try { localStorage.setItem('nexdare_dmhidden_' + cid, JSON.stringify(h)); } catch (e) {}
+      if (dmShared) {
+        const enc = await encryptText(dmShared.aes, JSON.stringify({ __s: 1, t: myDisplayName() + ' ne chat clear ki 🧹' }));
+        await push(ref(db, 'dm/' + cid + '/messages'), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
+      }
+      setNotice('Tumhari bheji saari messages sabke liye delete ho gayi 🧹');
+    } catch (e) { setError('Clear nahi hua: ' + e.message); }
+  };
   const startDmCall = () => { if (dmShared) Linking.openURL('https://meet.jit.si/nexdare-' + dmShared.callHash); };
 
   const keysStr = chatData && chatData.keys ? JSON.stringify(chatData.keys) : '';
@@ -1721,9 +1748,17 @@ export default function App() {
         if (text && text.indexOf('{"__f":1') === 0) {
           try { const j = JSON.parse(text); file = { id: j.id, name: j.name, type: j.type, size: j.size }; shown = j.text || ''; } catch (e) {}
         }
-        out.push({ key: m.key, from: m.from, t: m.t, edited: !!m.edited, text: shown, file });
+        let sys = false;
+        if (text && text.indexOf('{"__s":1') === 0) { try { shown = JSON.parse(text).t; sys = true; } catch (e) {} }
+        out.push({ key: m.key, from: m.from, t: m.t, edited: !!m.edited, text: shown, file, sys, locked: text === null });
       }
-      if (!cancelled) setDmPlain(out);
+      const merged = [];
+      for (const m of out) {
+        const last = merged[merged.length - 1];
+        if (m.locked && last && last.locked) last.count += 1;
+        else merged.push(m.locked ? { ...m, count: 1 } : m);
+      }
+      if (!cancelled) setDmPlain(merged);
     })();
     return () => { cancelled = true; };
   }, [dmShared, dmRaw]);
@@ -2031,6 +2066,7 @@ export default function App() {
       previewKey.current[f.chatId] = key;
       const text = await decryptText(pc.aes, m);
       let shown = text === null ? '🔒 Message' : text;
+      if (text && text.indexOf('{"__s":1') === 0) { try { shown = JSON.parse(text).t; } catch (e) {} }
       if (text && text.indexOf('{"__f":1') === 0) {
         try {
           const j = JSON.parse(text);
@@ -2793,16 +2829,51 @@ export default function App() {
     call('GET', 'users/' + currentUser.uid + '/nicks').then((v) => setNicks(v || {})).catch(() => {});
     call('GET', 'closeFriends/' + currentUser.uid).then((v) => setCloseSet(v || {})).catch(() => {});
   }, [isLoggedIn, currentUser && currentUser.uid]);
-  const nameOf = (f) => nicks[f.uid] || f.name || f.username;
+  const sharedNick = (f) => { const c = nicksShared[f.chatId]; return c && c[f.uid] && c[f.uid].n ? c[f.uid].n : ''; };
+  const nameOf = (f) => sharedNick(f) || nicks[f.uid] || f.name || f.username;
   const saveNick = async (uid, text) => {
     const v = text.trim();
-    setNicks((p) => { const n = { ...p }; if (v) n[uid] = v; else delete n[uid]; return n; });
+    const f = cloudFriends[uid];
     setNickEdit(null);
+    if (!f || !f.chatId) {
+      setNicks((p) => { const n = { ...p }; if (v) n[uid] = v; else delete n[uid]; return n; });
+      return;
+    }
+    const cid = f.chatId;
+    const rec = { n: v, by: currentUser.uid, t: Date.now() };
+    setNicksShared((p) => { const c = { ...(p[cid] || {}) }; if (v) c[uid] = rec; else delete c[uid]; return { ...p, [cid]: c }; });
     try {
-      if (v) await set(ref(db, 'users/' + currentUser.uid + '/nicks/' + uid), v);
-      else await remove(ref(db, 'users/' + currentUser.uid + '/nicks/' + uid));
-    } catch (e) { setError('Nickname save nahi hua: ' + e.message); }
+      if (v) await set(ref(db, 'couples/' + cid + '/nicks/' + uid), rec);
+      else await remove(ref(db, 'couples/' + cid + '/nicks/' + uid));
+    } catch (e) { setError('Nickname save nahi hua: ' + e.message); return; }
+    if (v && screen === 'dm' && dmShared && dmFriend && dmFriend.uid === uid) {
+      try {
+        const enc = await encryptText(dmShared.aes, JSON.stringify({ __s: 1, t: myDisplayName() + ' ne nickname rakha: ' + v }));
+        await push(ref(db, 'dm/' + cid + '/messages'), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
+      } catch (e) {}
+    }
   };
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser) return;
+    const run = async () => {
+      const out = {};
+      for (const u of Object.keys(cloudFriends)) {
+        const f = cloudFriends[u];
+        if (!f || !f.chatId) continue;
+        try { out[f.chatId] = (await call('GET', 'couples/' + f.chatId + '/nicks')) || {}; } catch (e) {}
+      }
+      setNicksShared((p) => ({ ...p, ...out }));
+    };
+    run();
+    const tm = screen === 'friends' ? setInterval(run, 20000) : null;
+    return () => { if (tm) clearInterval(tm); };
+  }, [screen === 'friends', isLoggedIn, Object.keys(cloudFriends).join(',')]);
+  useEffect(() => {
+    if (screen !== 'dm' || !dmFriend) return;
+    const cid = dmFriend.chatId;
+    const unsub = onValue(ref(db, 'couples/' + cid + '/nicks'), (snap) => setNicksShared((p) => ({ ...p, [cid]: snap.val() || {} })));
+    return () => unsub();
+  }, [screen, dmFriend && dmFriend.chatId]);
 
   // ---- Stranger chat (Omegle style) ----
   const strStop = async (keepSearching) => {
@@ -3167,7 +3238,7 @@ export default function App() {
   const mbH = { maxHeight: Math.max(280, (typeof window !== 'undefined' ? window.innerHeight : 700) - 330) };
   const nickPanel = () => (nickEdit ? (
     <View style={s.joinRow}>
-      <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Nickname (sirf tumhe dikhega)" placeholderTextColor={PH} maxLength={24}
+      <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Nickname (dono ko dikhega)" placeholderTextColor={PH} maxLength={24}
         value={nickEdit.text} onChangeText={(v) => setNickEdit({ ...nickEdit, text: v })} onSubmitEditing={() => saveNick(nickEdit.uid, nickEdit.text)} />
       <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={() => saveNick(nickEdit.uid, nickEdit.text)}><Text style={s.roundT}>✓</Text></TouchableOpacity>
     </View>
@@ -3964,7 +4035,7 @@ export default function App() {
                         {!!nickEdit && nickEdit.uid === f.uid && nickPanel()}
                         {friendMenu === f.uid && (
                           <View style={s.miniRow}>
-                            <Mini label="✏️ Nickname" onPress={() => { setFriendMenu(null); setNickEdit({ uid: f.uid, text: nicks[f.uid] || '' }); }} />
+                            <Mini label="✏️ Nickname" onPress={() => { setFriendMenu(null); setNickEdit({ uid: f.uid, text: sharedNick(f) || nicks[f.uid] || '' }); }} />
                             <Mini label={t('remove')} onPress={() => { setFriendMenu(null); removeCloudFriend(f); }} />
                             <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
                           </View>
@@ -4168,8 +4239,9 @@ export default function App() {
           <View style={s.dmHead}>
             <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} name={(dmProf && dmProf.name) || dmFriend.name || dmFriend.username} getHd={hdOf(dmFriend.uid)} />
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={[s.code2, { color: th.accent2, marginBottom: 0 }]}>{nicks[dmFriend.uid] || (dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
-              {!!nicks[dmFriend.uid] && <Text style={s.cardS}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>}
+              <Text style={[s.code2, { color: th.accent2, marginBottom: 0 }]}>{sharedNick(dmFriend) || nicks[dmFriend.uid] || (dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+              {!!(sharedNick(dmFriend) || nicks[dmFriend.uid]) && <Text style={s.cardS}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>}
+              {!!(nicksShared[dmFriend.chatId] && nicksShared[dmFriend.chatId][myUid]) && <Text style={s.cardS}>Tumhara nickname: {nicksShared[dmFriend.chatId][myUid].n}</Text>}
               {!!presText(presMap[dmFriend.uid]) && <Text style={[s.cardS, isOnline(presMap[dmFriend.uid]) ? { color: '#25d366' } : null]}>{presText(presMap[dmFriend.uid])}</Text>}
             </View>
             {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
@@ -4182,18 +4254,26 @@ export default function App() {
                 <Mini label="Spam" onPress={() => reportUser('Spam')} />
                 <Mini label="Abuse" onPress={() => reportUser('Abuse')} />
                 <Mini label="Fake account" onPress={() => reportUser('Fake account')} />
+              </>) : dmMenu === 'clear' ? (<>
+                <Mini label="🙈 Sirf mere liye" onPress={dmClearForMe} />
+                <Mini label="🗑️ Sabke liye" onPress={dmClearForAll} />
               </>) : (<>
                 <Mini label={dmMenu === 'blockConfirm' ? 'Pakka block?' : '🚫 Block'} onPress={() => (dmMenu === 'blockConfirm' ? blockUser(dmFriend) : setDmMenu('blockConfirm'))} />
                 <Mini label="⚠️ Report" onPress={() => setDmMenu('report')} />
-                <Mini label="✏️ Nickname" onPress={() => { setDmMenu(''); setNickEdit({ uid: dmFriend.uid, text: nicks[dmFriend.uid] || '' }); }} />
+                <Mini label="✏️ Nickname" onPress={() => { setDmMenu(''); setNickEdit({ uid: dmFriend.uid, text: sharedNick(dmFriend) || nicks[dmFriend.uid] || '' }); }} />
+                <Mini label="🧹 Clear chat" onPress={() => setDmMenu('clear')} />
               </>)}
               <Mini label={t('cancel')} onPress={() => setDmMenu('')} />
             </View>
           )}
+          {dmMenu === 'clear' && <Text style={s.hint}>Sirf mere liye: saari chat tumhare phone se chhup jayegi. Sabke liye: tumhari bheji saari messages dono taraf se hat jayengi (dost ki apni messages unke paas rahengi, tumhare liye chhup jayengi).</Text>}
           <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar Message screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
           <ScrollView ref={dmScrollRef} style={[s.msgBox, mbH]} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
             {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
+            {dmVisible.some((m) => m.locked) && <Text style={s.hint}>Dost ya tumne app data clear ya reinstall kiya to purani key chali jati hai. Purani messages nahi khulti, nayi messages normal chalengi.</Text>}
             {dmVisible.map((m) => {
+              if (m.sys) return <Text key={m.key} style={s.sysMsg}>{m.text}</Text>;
+              if (m.locked) return <Text key={m.key} style={s.sysMsg}>{'🔒 ' + (m.count > 1 ? m.count + ' purani messages' : 'Ek purani message') + ' nahi khul sakte (key badal gayi)'}</Text>;
               const mine = myUid && m.from === myUid;
               const sel = dmSel && dmSel.key === m.key;
               const data = m.file ? dmImgs[m.file.id] : null;
@@ -4652,6 +4732,7 @@ const s = StyleSheet.create({
   strGoT: { color: '#fff', fontSize: 40, fontWeight: '800' },
   strGoS: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 2 },
   strChip: { backgroundColor: '#ffffff18', borderRadius: 18, paddingVertical: 9, paddingHorizontal: 16, marginTop: 28 },
+  sysMsg: { color: '#ffffffaa', fontSize: 12, textAlign: 'center', marginVertical: 8, paddingHorizontal: 20 },
   recT: { color: '#fff', fontWeight: '800', fontSize: 15, backgroundColor: '#000000aa', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   camTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   camChip: { backgroundColor: '#ffffff22', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 14 },
