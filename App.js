@@ -1023,6 +1023,17 @@ export default function App() {
   const [dmPlus, setDmPlus] = useState(false);
   const [nicks, setNicks] = useState({});
   const [nickEdit, setNickEdit] = useState(null);
+  const [strState, setStrState] = useState('idle');
+  const [strRoom, setStrRoom] = useState(null);
+  const [strRaw, setStrRaw] = useState({});
+  const [strPlain, setStrPlain] = useState([]);
+  const [strText, setStrText] = useState('');
+  const [strEnded, setStrEnded] = useState(false);
+  const strJoin = useRef(0);
+  const strBusy = useRef(false);
+  const lastStr = useRef('');
+  const strCount = useRef(-1);
+  const strScroll = useRef(null);
   const [stories, setStories] = useState({});
   const [seenSt, setSeenSt] = useState(() => { try { return JSON.parse(localStorage.getItem('nexdare_seenst')) || {}; } catch (e) { return {}; } });
   const [sv, setSv] = useState(null);
@@ -2716,6 +2727,105 @@ export default function App() {
     } catch (e) { setError('Nickname save nahi hua: ' + e.message); }
   };
 
+  // ---- Stranger chat (Omegle style) ----
+  const strStop = async (keepSearching) => {
+    const rid = strRoom && strRoom.rid;
+    try { if (rid) await update(ref(db, 'strangerRooms/' + rid + '/meta'), { ended: true }); } catch (e) {}
+    try { if (currentUser) await remove(ref(db, 'strangerQueue/' + currentUser.uid)); } catch (e) {}
+    setStrRoom(null); setStrRaw({}); setStrPlain([]); setStrText(''); setStrEnded(false);
+    lastStr.current = ''; strCount.current = -1; strBusy.current = false;
+    if (keepSearching) strJoin.current = Date.now();
+    setStrState(keepSearching ? 'searching' : 'idle');
+  };
+  const strStart = () => { strJoin.current = Date.now(); setStrEnded(false); setStrState('searching'); setError(''); setNotice(''); };
+  const strEnter = async (rid) => {
+    const key = await groupKeyOf(rid);
+    setStrRaw({}); setStrPlain([]); lastStr.current = ''; strCount.current = -1; setStrEnded(false);
+    setStrRoom({ rid, key }); setStrState('chatting');
+    try { await remove(ref(db, 'strangerMatch/' + currentUser.uid)); } catch (e) {}
+  };
+  useEffect(() => {
+    if (screen !== 'stranger' || strState !== 'searching' || !currentUser || !subtle) return;
+    let stop = false;
+    const tick = async () => {
+      if (strBusy.current || stop) return;
+      strBusy.current = true;
+      try {
+        const me = currentUser.uid;
+        const m = await call('GET', 'strangerMatch/' + me);
+        if (m && m.rid) {
+          if (Date.now() - (m.t || 0) < 30000) { if (!stop) await strEnter(m.rid); return; }
+          remove(ref(db, 'strangerMatch/' + me)).catch(() => {});
+        }
+        await set(ref(db, 'strangerQueue/' + me), { j: strJoin.current, t: Date.now() });
+        const q = (await call('GET', 'strangerQueue')) || {};
+        const now = Date.now();
+        const alive = Object.keys(q).filter((u) => q[u] && now - q[u].t < 12000)
+          .map((u) => ({ u, j: q[u].j || 0 })).sort((a, b) => a.j - b.j || (a.u < b.u ? -1 : 1));
+        Object.keys(q).filter((u) => !q[u] || now - q[u].t > 60000).forEach((u) => remove(ref(db, 'strangerQueue/' + u)).catch(() => {}));
+        if (alive.length >= 2 && alive[0].u === me && !stop) {
+          const other = alive[1].u;
+          const rid = newGroupCode();
+          await set(ref(db, 'strangerRooms/' + rid + '/meta'), { a: me, b: other, t: now });
+          await set(ref(db, 'strangerMatch/' + other), { rid, t: now });
+          await set(ref(db, 'strangerMatch/' + me), { rid, t: now });
+          await remove(ref(db, 'strangerQueue/' + other)).catch(() => {});
+          await remove(ref(db, 'strangerQueue/' + me)).catch(() => {});
+        }
+      } catch (e) {} finally { strBusy.current = false; }
+    };
+    tick();
+    const iv = setInterval(tick, 1800);
+    return () => { stop = true; clearInterval(iv); };
+  }, [screen, strState]);
+  useEffect(() => {
+    if (screen !== 'stranger' || strState !== 'chatting' || !strRoom) return;
+    const u1 = onValue({ path: 'strangerRooms/' + strRoom.rid + '/messages', query: 'orderBy=%22%24key%22&limitToLast=100' }, (snap) => {
+      const v = snap.val();
+      const str = JSON.stringify(v);
+      if (str !== lastStr.current) { lastStr.current = str; setStrRaw(v || {}); }
+    });
+    const u2 = onValue(ref(db, 'strangerRooms/' + strRoom.rid + '/meta'), (snap) => { const v = snap.val(); if (v && v.ended) setStrEnded(true); });
+    return () => { u1(); u2(); };
+  }, [screen, strState, strRoom && strRoom.rid]);
+  useEffect(() => {
+    if (!strRoom) { setStrPlain([]); return; }
+    let c = false;
+    (async () => {
+      const list = Object.keys(strRaw).map((k) => ({ key: k, ...strRaw[k] })).sort((a, b) => a.t - b.t);
+      const out = [];
+      for (const m of list) {
+        const txt = await decryptText(strRoom.key, m);
+        let text = '🔒';
+        if (txt !== null) { try { text = JSON.parse(txt).x; } catch (e) { text = txt; } }
+        out.push({ key: m.key, mine: !!currentUser && m.from === currentUser.uid, t: m.t, text });
+      }
+      if (!c) {
+        if (strCount.current >= 0 && out.length > strCount.current && out.length && !out[out.length - 1].mine) playSound('msg', soundOn);
+        strCount.current = out.length;
+        setStrPlain(out);
+      }
+    })();
+    return () => { c = true; };
+  }, [strRoom && strRoom.rid, strRaw]);
+  useEffect(() => { if (screen !== 'stranger' && strState !== 'idle') strStop(false); }, [screen]);
+  const strSend = async () => {
+    const text = strText.trim();
+    if (!text || !strRoom || strEnded) return;
+    setStrText('');
+    try {
+      const enc = await encryptText(strRoom.key, JSON.stringify({ x: text }));
+      await push(ref(db, 'strangerRooms/' + strRoom.rid + '/messages'), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
+      playSound('click', soundOn);
+    } catch (e) { setError('Message nahi gaya: ' + e.message); }
+  };
+  const strReport = async () => {
+    if (!strRoom) return;
+    try { await push(ref(db, 'reports'), { type: 'stranger', room: strRoom.rid, by: currentUser.uid, t: Date.now() }); } catch (e) {}
+    setNotice('Report bhej di. Shukriya 🙏');
+    strStop(true);
+  };
+
   // ---- Stories + Close friends ----
   const loadStories = async () => {
     if (!currentUser || !currentUser.uid) return;
@@ -2971,6 +3081,7 @@ export default function App() {
     if (viewer) { setViewer(null); return true; }
     if (sv) { setSv(null); return true; }
     if (screen === 'groups' && grp) { closeGroup(); return true; }
+    if (screen === 'stranger' && strState !== 'idle') { strStop(false); return true; }
     return false;
   };
   useEffect(() => {
@@ -3008,7 +3119,7 @@ export default function App() {
   if (screen === 'home') th = page === 1 ? themes.p1 : page === 2 ? themes.p2 : themes.p3;
   else if (screen === 'join' || screen === 'room') th = themes.room;
   else if (screen === 'chat' || screen === 'dm' || screen === 'groups') th = themes.chat;
-  else if (screen === 'games' || screen === 'ttt' || screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
+  else if (screen === 'games' || screen === 'stranger' || screen === 'ttt' || screen === 'tdhub' || screen === 'wyr' || screen === 'nhie' || screen === 'quiz') th = themes.p2;
   else if (screen === 'couple' || screen === 'daily' || screen === 'mem' || screen === 'album' || screen === 'notes') th = themes.p3;
   else th = themes.settings;
   if (skin && skins[skin]) th = { ...th, ...skins[skin] };
@@ -3536,6 +3647,7 @@ export default function App() {
           <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
           <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
           <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />
+          <Btn label="🌍 Stranger Chat" onPress={() => goScreen('stranger')} />
           <Nav label={t('back')} onPress={backToTools} />
         </>)}
 
@@ -3998,6 +4110,46 @@ export default function App() {
           <Text style={s.sm}>{t('needBrowserChat')}</Text>
           <Nav label={t('back')} onPress={leaveDm} />
         </>))}
+
+        {screen === 'stranger' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>🌍 Stranger Chat</Text>
+            {!subtle && <Text style={s.sm}>{t('needBrowserChat')}</Text>}
+            {strState === 'idle' && (<>
+              <Text style={s.sm}>Kisi anjaan se random baat karo, bilkul Omegle jaisa. Dono taraf naam nahi dikhta.</Text>
+              <Text style={s.hint}>⚠️ Personal info (number, address, photo) share mat karo. Kuch galat lage to Report dabao.</Text>
+              <Btn label="🔍 Stranger dhundo" onPress={strStart} />
+            </>)}
+            {strState === 'searching' && (<>
+              <Text style={s.bt}>🔎 Stranger dhundh raha hoon...</Text>
+              <Text style={s.sm}>Match tabhi hoga jab koi aur bhi search kare. Thoda ruko.</Text>
+              <Btn label="✕ Cancel" onPress={() => strStop(false)} />
+            </>)}
+            {strState === 'chatting' && (<>
+              <Text style={s.sm}>{strEnded ? '👋 Stranger chala gaya' : '✅ Stranger mil gaya! Hi bolo 👋'}</Text>
+              <ScrollView ref={strScroll} style={[s.msgBox, mbH]} onContentSizeChange={() => strScroll.current && strScroll.current.scrollToEnd({ animated: true })}>
+                {strPlain.map((m) => (
+                  <View key={m.key} style={[s.bubble, m.mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs]}>
+                    <Text style={s.bname}>{m.mine ? t('you') : 'Stranger'}</Text>
+                    <Text style={s.btext}>{m.text}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              {strEnded ? <Btn label="➡️ Naya stranger" onPress={() => strStop(true)} /> : (<>
+                <View style={s.sendRow}>
+                  <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={strText} onChangeText={setStrText} onSubmitEditing={strSend} />
+                  <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={strSend}><Text style={s.bt}>➤</Text></TouchableOpacity>
+                </View>
+                <View style={s.miniRow}>
+                  <Mini label="⏭ Next" onPress={() => strStop(true)} />
+                  <Mini label="⚠️ Report" onPress={strReport} />
+                  <Mini label="⏹ Stop" onPress={() => strStop(false)} />
+                </View>
+              </>)}
+            </>)}
+            <Nav label={t('back')} onPress={backToGames} />
+          </ScrollView>
+        )}
 
         {screen === 'storynew' && (
           <ScrollView contentContainerStyle={sc}>
