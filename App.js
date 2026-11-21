@@ -96,9 +96,11 @@ const onValue = (r, cb) => {
   let stopped = false;
   let inFlight = false;
   let hasLastValue = false;
+  let skipN = 0;
   let lastSerialized = '';
   const poll = async () => {
     if (stopped || inFlight) return;
+    if (typeof document !== 'undefined' && document.hidden && (skipN++ % 6) !== 0) return;
     inFlight = true;
     try {
       const val = await call('GET', r.path, undefined, r.query);
@@ -117,7 +119,7 @@ const onValue = (r, cb) => {
   };
   listeners.add(poll);
   poll();
-  const timer = setInterval(poll, 1000);
+  const timer = setInterval(poll, 600);
   return () => { stopped = true; clearInterval(timer); listeners.delete(poll); };
 };
 
@@ -753,6 +755,7 @@ const sendOtpMail = async (to, code) => {
   });
   if (!r.ok) throw new Error((await r.text()) || 'mail nahi gayi');
 };
+const ST_BGS = ['#ff4d8d', '#7c4dff', '#ff9800', '#00b894', '#0984e3', '#2d3436'];
 // ---- Camera filters / stickers ----
 const CAM_FILTERS = [
   ['Normal', 'none'],
@@ -1017,6 +1020,17 @@ export default function App() {
   const [viewerHd, setViewerHd] = useState('');
   const [langOpen, setLangOpen] = useState(false);
   const [cam, setCam] = useState(null);
+  const [dmPlus, setDmPlus] = useState(false);
+  const [nicks, setNicks] = useState({});
+  const [nickEdit, setNickEdit] = useState(null);
+  const [stories, setStories] = useState({});
+  const [seenSt, setSeenSt] = useState(() => { try { return JSON.parse(localStorage.getItem('nexdare_seenst')) || {}; } catch (e) { return {}; } });
+  const [sv, setSv] = useState(null);
+  const [stAud, setStAud] = useState('all');
+  const [stText, setStText] = useState('');
+  const [stBg, setStBg] = useState(0);
+  const [stBusy, setStBusy] = useState(false);
+  const [closeSet, setCloseSet] = useState({});
   const camVideo = useRef(null);
   const camStream = useRef(null);
   const [deactMap, setDeactMap] = useState({});
@@ -2685,6 +2699,124 @@ export default function App() {
     setAcctBusy(false);
   };
 
+  // ---- Nicknames ----
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || !currentUser.uid || !currentUser.username) return;
+    call('GET', 'users/' + currentUser.uid + '/nicks').then((v) => setNicks(v || {})).catch(() => {});
+    call('GET', 'closeFriends/' + currentUser.uid).then((v) => setCloseSet(v || {})).catch(() => {});
+  }, [isLoggedIn, currentUser && currentUser.uid]);
+  const nameOf = (f) => nicks[f.uid] || f.name || f.username;
+  const saveNick = async (uid, text) => {
+    const v = text.trim();
+    setNicks((p) => { const n = { ...p }; if (v) n[uid] = v; else delete n[uid]; return n; });
+    setNickEdit(null);
+    try {
+      if (v) await set(ref(db, 'users/' + currentUser.uid + '/nicks/' + uid), v);
+      else await remove(ref(db, 'users/' + currentUser.uid + '/nicks/' + uid));
+    } catch (e) { setError('Nickname save nahi hua: ' + e.message); }
+  };
+
+  // ---- Stories + Close friends ----
+  const loadStories = async () => {
+    if (!currentUser || !currentUser.uid) return;
+    const me = currentUser.uid;
+    const uids = [me, ...Object.keys(cloudFriends)];
+    const now = Date.now();
+    const out = {};
+    for (const u of uids) {
+      const list = [];
+      for (const b of ['all', 'close']) {
+        try {
+          const v = await call('GET', 'stories/' + u + '/' + b);
+          if (v) Object.keys(v).forEach((sid) => {
+            const st = v[sid];
+            if (st && st.exp > now) list.push({ ...st, sid, bucket: b, uid: u });
+            else if (u === me) remove(ref(db, 'stories/' + me + '/' + b + '/' + sid)).catch(() => {});
+          });
+        } catch (e) {}
+      }
+      list.sort((a, b) => a.t - b.t);
+      if (list.length) out[u] = list;
+    }
+    setStories(out);
+  };
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser || screen !== 'friends') return;
+    loadStories();
+    const tm = setInterval(loadStories, 30000);
+    return () => clearInterval(tm);
+  }, [screen, isLoggedIn, Object.keys(cloudFriends).join(',')]);
+  const openStory = (uid) => {
+    const list = stories[uid];
+    if (!list || !list.length) return;
+    let idx = list.findIndex((x) => !seenSt[x.sid]);
+    if (idx < 0) idx = 0;
+    setSv({ uid, list, idx });
+  };
+  const goStoryNew = () => { setError(''); setNotice(''); setScreen('storynew'); };
+  const svNext = () => setSv((v) => { if (!v) return v; return v.idx + 1 < v.list.length ? { ...v, idx: v.idx + 1 } : null; });
+  const svPrev = () => setSv((v) => (v && v.idx > 0 ? { ...v, idx: v.idx - 1 } : v));
+  const markSeen = (st) => {
+    if (!st) return;
+    setSeenSt((p) => {
+      if (p[st.sid]) return p;
+      const n = { ...p, [st.sid]: 1 };
+      try { localStorage.setItem('nexdare_seenst', JSON.stringify(n)); } catch (e) {}
+      return n;
+    });
+    if (currentUser && st.uid !== currentUser.uid) set(ref(db, 'stories/' + st.uid + '/' + st.bucket + '/' + st.sid + '/views/' + currentUser.uid), Date.now()).catch(() => {});
+  };
+  useEffect(() => {
+    if (!sv) return;
+    const st = sv.list[sv.idx];
+    if (!st) return;
+    markSeen(st);
+    const tm = setTimeout(svNext, 6000);
+    return () => clearTimeout(tm);
+  }, [sv && sv.uid, sv && sv.idx]);
+  const svDelete = async (st) => {
+    try { await remove(ref(db, 'stories/' + currentUser.uid + '/' + st.bucket + '/' + st.sid)); } catch (e) { setError('Delete nahi hua: ' + e.message); }
+    setSv(null); loadStories();
+  };
+  const postStory = async (data) => {
+    if (!currentUser) return;
+    setStBusy(true); setError('');
+    try {
+      const bucket = stAud === 'close' ? 'close' : 'all';
+      const t0 = Date.now();
+      await set(ref(db, 'stories/' + currentUser.uid + '/' + bucket + '/' + randomId()), { ...data, t: t0, exp: t0 + 24 * 3600 * 1000 });
+      setNotice('Story laga di ✨');
+      await loadStories();
+      setScreen('friends');
+    } catch (e) { setError('Story nahi lagi: ' + e.message); }
+    setStBusy(false);
+  };
+  const postPhotoStory = async (du) => { const small = await compressImageTo(du, 1000, 0.72); await postStory({ type: 'img', data: small }); };
+  const pickStoryPhoto = () => {
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      try { await postPhotoStory(await readAsDataUrl(f)); } catch (e) { setError('Story nahi lagi: ' + e.message); }
+    };
+    input.click();
+  };
+  const postTextStory = async () => {
+    const tx = stText.trim();
+    if (!tx) { setError('Kuch likho'); return; }
+    await postStory({ type: 'text', text: tx, bg: stBg });
+    setStText('');
+  };
+  const toggleClose = async (uid, on) => {
+    setCloseSet((p) => { const n = { ...p }; if (on) n[uid] = true; else delete n[uid]; return n; });
+    try {
+      if (on) await set(ref(db, 'closeFriends/' + currentUser.uid + '/' + uid), true);
+      else await remove(ref(db, 'closeFriends/' + currentUser.uid + '/' + uid));
+    } catch (e) { setError('Save nahi hua: ' + e.message); }
+  };
+
   // ---- Album ----
   const albumLoad = async () => {
     if (!pal || !palAes) return;
@@ -2796,6 +2928,78 @@ export default function App() {
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
   const grpVisible = grpPlain.filter((m) => !grpHidden.includes(m.key));
+  const mbH = { maxHeight: Math.max(280, (typeof window !== 'undefined' ? window.innerHeight : 700) - 330) };
+  const nickPanel = () => (nickEdit ? (
+    <View style={s.joinRow}>
+      <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Nickname (sirf tumhe dikhega)" placeholderTextColor={PH} maxLength={24}
+        value={nickEdit.text} onChangeText={(v) => setNickEdit({ ...nickEdit, text: v })} onSubmitEditing={() => saveNick(nickEdit.uid, nickEdit.text)} />
+      <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={() => saveNick(nickEdit.uid, nickEdit.text)}><Text style={s.roundT}>✓</Text></TouchableOpacity>
+    </View>
+  ) : null);
+  const ringOf = (uid) => {
+    const l = stories[uid];
+    if (!l) return null;
+    const un = l.filter((x) => !seenSt[x.sid]);
+    if (!un.length) return '#ffffff55';
+    return un.some((x) => x.bucket === 'close') ? '#25d366' : th.accent;
+  };
+  const storyTray = () => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 104, width: '100%', marginBottom: 6 }} contentContainerStyle={{ paddingHorizontal: 12, alignItems: 'flex-start' }}>
+      <TouchableOpacity style={s.stItem} onPress={() => (stories[myUid] ? openStory(myUid) : goStoryNew())}>
+        <View style={[s.stRing, { borderColor: ringOf(myUid) || 'transparent' }]}><Pic uri={myPhoto} emoji={profile.avatar} size={56} name={myLetterName} noTap /></View>
+        <TouchableOpacity style={s.stPlus} onPress={goStoryNew}><Text style={s.stPlusT}>＋</Text></TouchableOpacity>
+        <Text numberOfLines={1} style={s.stName}>Your story</Text>
+      </TouchableOpacity>
+      {Object.keys(cloudFriends).filter((u) => stories[u]).map((u) => {
+        const f = cloudFriends[u];
+        return (
+          <TouchableOpacity key={u} style={s.stItem} onPress={() => openStory(u)}>
+            <View style={[s.stRing, { borderColor: ringOf(u) || 'transparent' }]}><Pic uri={pics[u]} emoji={f.avatar || '😎'} size={56} name={nameOf(f)} noTap /></View>
+            <Text numberOfLines={1} style={s.stName}>{nameOf(f)}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+
+  // ---- Back button (Android / browser back) ----
+  const navStack = useRef([]);
+  const suppressPop = useRef(0);
+  const innerBackRef = useRef(null);
+  innerBackRef.current = () => {
+    if (cam) { closeCam(); return true; }
+    if (viewer) { setViewer(null); return true; }
+    if (sv) { setSv(null); return true; }
+    if (screen === 'groups' && grp) { closeGroup(); return true; }
+    return false;
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const st = navStack.current;
+    if (!st.length) { st.push({ screen, page }); try { window.history.replaceState({ nx: 1 }, ''); } catch (e) {} return; }
+    const top = st[st.length - 1];
+    if (top.screen === screen && top.page === page) return;
+    const prev = st[st.length - 2];
+    if (prev && prev.screen === screen && prev.page === page) {
+      st.pop(); suppressPop.current += 1;
+      try { window.history.back(); } catch (e) {}
+      return;
+    }
+    st.push({ screen, page });
+    try { window.history.pushState({ nx: st.length }, ''); } catch (e) {}
+  }, [screen, page]);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onPop = () => {
+      if (suppressPop.current > 0) { suppressPop.current -= 1; return; }
+      if (innerBackRef.current && innerBackRef.current()) { try { window.history.pushState({ nx: navStack.current.length }, ''); } catch (e) {} return; }
+      const st = navStack.current;
+      if (st.length > 1) { st.pop(); const prev = st[st.length - 1]; setPage(prev.page); setScreen(prev.screen); }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   const myId = ident ? ident.sid : null;
   const myUid = currentUser ? currentUser.uid : null;
   const totalUnread = Object.keys(unread).reduce((a, k) => a + (unread[k] || 0), 0);
@@ -2831,7 +3035,8 @@ export default function App() {
     </View>
   );
   const myLetterName = profile.name || (currentUser && (currentUser.email || currentUser.name || currentUser.username)) || '';
-  const Pic = ({ uri, emoji, size, name, getHd }) => {
+  const Pic = ({ uri, emoji, size, name, getHd, noTap }) => {
+    if (uri && noTap) return <RNImage source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
     if (uri) {
       return (
         <TouchableOpacity activeOpacity={0.8} onPress={() => setViewer({ uri, getHd })}>
@@ -2964,7 +3169,7 @@ export default function App() {
   const needUsername = isLoggedIn && !!currentUser && !currentUser.username;
   const friendSeen = dmFriend ? (dmSeen[dmFriend.uid] || 0) : 0;
   const partnerName = chatData && chatData.names && ident ? (Object.keys(chatData.names).filter((k) => k !== ident.sid).map((k) => chatData.names[k])[0] || t('partner')) : t('partner');
-  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'acct', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
+  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'acct', 'storynew', 'closefr', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
   const sc = { alignItems: 'center', paddingBottom: 40, width: '100%' };
   const PH = '#ffffff88';
 
@@ -3060,7 +3265,7 @@ export default function App() {
         <Text style={s.sm}>Kiske saath khelna hai? Apne 💌 Message wale dost me se chuno</Text>
         {fl.length === 0 && <Text style={s.sm}>Abhi koi friend nahi hai. Pehle Message me friend add karo.</Text>}
         <View style={{ width: '100%' }}>
-          {fl.map((f) => chatRow({ rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username, sub: '@' + f.username, getHd: hdOf(f.uid), onPress: () => choosePal(f) }))}
+          {fl.map((f) => chatRow({ rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: nameOf(f), sub: '@' + f.username, getHd: hdOf(f.uid), onPress: () => choosePal(f) }))}
         </View>
         {palPicking && !!pal && <Mini label={t('cancel')} onPress={() => setPalPicking(false)} />}
       </>);
@@ -3472,6 +3677,7 @@ export default function App() {
 
         {screen === 'friends' && (
           <ScrollView contentContainerStyle={sc}>
+            {storyTray()}
             <Text style={s.sm}>Tumhara username</Text>
             <Text style={[s.code2, { color: th.accent2 }]}>@{currentUser ? currentUser.username : ''}</Text>
             <Mini label="📋 Copy" onPress={() => copyText('@' + (currentUser ? currentUser.username : ''))} />
@@ -3505,14 +3711,16 @@ export default function App() {
                     return (
                       <View key={f.uid}>
                         {chatRow({
-                          rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: f.name || f.username,
+                          rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: nameOf(f),
                           sub: deactMap[f.uid] ? '🚫 Account deactivated' : pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
                           time: pv ? fmtListTime(pv.t) : '', badge: un,
                           onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
                           getHd: hdOf(f.uid), online: !deactMap[f.uid] && isOnline(presMap[f.uid]),
                         })}
+                        {!!nickEdit && nickEdit.uid === f.uid && nickPanel()}
                         {friendMenu === f.uid && (
                           <View style={s.miniRow}>
+                            <Mini label="✏️ Nickname" onPress={() => { setFriendMenu(null); setNickEdit({ uid: f.uid, text: nicks[f.uid] || '' }); }} />
                             <Mini label={t('remove')} onPress={() => { setFriendMenu(null); removeCloudFriend(f); }} />
                             <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
                           </View>
@@ -3680,7 +3888,7 @@ export default function App() {
             </View>
           )}
           <Text style={s.sm}>🔒 End-to-end encrypted • sirf code wale padh sakte hain</Text>
-          <ScrollView ref={grpScrollRef} style={s.msgBox} onContentSizeChange={() => grpScrollRef.current && grpScrollRef.current.scrollToEnd({ animated: true })}>
+          <ScrollView ref={grpScrollRef} style={[s.msgBox, mbH]} onContentSizeChange={() => grpScrollRef.current && grpScrollRef.current.scrollToEnd({ animated: true })}>
             {grpVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
             {grpVisible.map((m) => {
               const mine = myUid && m.from === myUid;
@@ -3715,12 +3923,14 @@ export default function App() {
           <View style={s.dmHead}>
             <Pic uri={dmProf && dmProf.photo} emoji={dmFriend.avatar || '😎'} size={40} name={(dmProf && dmProf.name) || dmFriend.name || dmFriend.username} getHd={hdOf(dmFriend.uid)} />
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={[s.code2, { color: th.accent2, marginBottom: 0 }]}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+              <Text style={[s.code2, { color: th.accent2, marginBottom: 0 }]}>{nicks[dmFriend.uid] || (dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
+              {!!nicks[dmFriend.uid] && <Text style={s.cardS}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>}
               {!!presText(presMap[dmFriend.uid]) && <Text style={[s.cardS, isOnline(presMap[dmFriend.uid]) ? { color: '#25d366' } : null]}>{presText(presMap[dmFriend.uid])}</Text>}
             </View>
             {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
             <TouchableOpacity style={s.attachBtn} onPress={() => setDmMenu(dmMenu ? '' : 'menu')}><Text style={s.bt}>⋮</Text></TouchableOpacity>
           </View>
+          {!!nickEdit && nickEdit.uid === dmFriend.uid && nickPanel()}
           {!!dmMenu && (
             <View style={s.miniRow}>
               {dmMenu === 'report' ? (<>
@@ -3730,12 +3940,13 @@ export default function App() {
               </>) : (<>
                 <Mini label={dmMenu === 'blockConfirm' ? 'Pakka block?' : '🚫 Block'} onPress={() => (dmMenu === 'blockConfirm' ? blockUser(dmFriend) : setDmMenu('blockConfirm'))} />
                 <Mini label="⚠️ Report" onPress={() => setDmMenu('report')} />
+                <Mini label="✏️ Nickname" onPress={() => { setDmMenu(''); setNickEdit({ uid: dmFriend.uid, text: nicks[dmFriend.uid] || '' }); }} />
               </>)}
               <Mini label={t('cancel')} onPress={() => setDmMenu('')} />
             </View>
           )}
           <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar Message screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
-          <ScrollView ref={dmScrollRef} style={s.msgBox} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
+          <ScrollView ref={dmScrollRef} style={[s.msgBox, mbH]} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
             {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
             {dmVisible.map((m) => {
               const mine = myUid && m.from === myUid;
@@ -3744,7 +3955,7 @@ export default function App() {
               return (
                 <TouchableOpacity key={m.key} onPress={() => setDmSel(sel ? null : m)}
                   style={[s.bubble, mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs, sel ? s.selBubble : null]}>
-                  <Text style={s.bname}>{mine ? t('you') : (dmFriend.name || dmFriend.username)}</Text>
+                  <Text style={s.bname}>{mine ? t('you') : nameOf(dmFriend)}</Text>
                   {isImg(m.file) && (data && data !== 'ERR' ? <RNImage source={{ uri: data }} style={s.dmPic} resizeMode="cover" /> : <Text style={s.btext}>{data === 'ERR' ? '🖼️ Photo khul nahi payi' : '🖼️ Photo load ho rahi hai...'}</Text>)}
                   {isAud(m.file) && (data && data !== 'ERR' && Platform.OS === 'web' ? React.createElement('audio', { src: data, controls: true, style: { width: 210 } }) : <Text style={s.btext}>🎤 Voice note load ho raha hai...</Text>)}
                   {!!m.file && !isImg(m.file) && !isAud(m.file) && <Text style={s.btext}>📎 {m.file.name} ({fmtSize(m.file.size)})</Text>}
@@ -3768,10 +3979,17 @@ export default function App() {
           {editing && <Text style={s.sm}>✏️ Message edit ho raha hai <Text onPress={() => { setEditing(null); setDmText(''); }}> (cancel)</Text></Text>}
           {dmBusy && <Text style={s.sm}>⏳ Bhej raha hoon...</Text>}
           {recording && <Text style={s.sm}>🔴 Record ho raha hai... ruk-ne ke liye ⏹ dabao</Text>}
+          {dmPlus && !recording && (
+            <View style={s.miniRow}>
+              <Mini label="📷 Camera" onPress={() => { setDmPlus(false); if (!dmShared) { setNotice('Friend ki encryption abhi ready nahi hai.'); return; } openCamera(sendCamToDm); }} />
+              <Mini label="📎 File" onPress={() => { setDmPlus(false); pickDmFile(); }} />
+              <Mini label="🎤 Voice" onPress={() => { setDmPlus(false); startRec(); }} />
+            </View>
+          )}
           <View style={s.sendRow}>
-            <TouchableOpacity style={s.attachBtn} onPress={() => { if (!dmShared) { setNotice('Friend ki encryption abhi ready nahi hai.'); return; } openCamera(sendCamToDm); }}><Text style={s.bt}>📷</Text></TouchableOpacity>
-            <TouchableOpacity style={s.attachBtn} onPress={pickDmFile}><Text style={s.bt}>📎</Text></TouchableOpacity>
-            <TouchableOpacity style={s.attachBtn} onPress={recording ? stopRec : startRec}><Text style={s.bt}>{recording ? '⏹' : '🎤'}</Text></TouchableOpacity>
+            {recording
+              ? <TouchableOpacity style={s.attachBtn} onPress={stopRec}><Text style={s.bt}>⏹</Text></TouchableOpacity>
+              : <TouchableOpacity style={s.attachBtn} onPress={() => setDmPlus(!dmPlus)}><Text style={s.bt}>{dmPlus ? '✕' : '＋'}</Text></TouchableOpacity>}
             <TextInput style={s.msgInput} placeholder={t('msgPlaceholder')} placeholderTextColor={PH} value={dmText} onChangeText={setDmText} onSubmitEditing={sendDm} />
             <TouchableOpacity style={[s.sendBtn, { backgroundColor: th.accent }]} onPress={sendDm}><Text style={s.bt}>{editing ? '✓' : '➤'}</Text></TouchableOpacity>
           </View>
@@ -3780,6 +3998,45 @@ export default function App() {
           <Text style={s.sm}>{t('needBrowserChat')}</Text>
           <Nav label={t('back')} onPress={leaveDm} />
         </>))}
+
+        {screen === 'storynew' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>➕ Nayi story</Text>
+            <Text style={s.sm}>Kisko dikhani hai?</Text>
+            <View style={s.miniRow}>
+              <Mini label={(stAud === 'all' ? '✅ ' : '') + '👥 Sabhi friends'} onPress={() => setStAud('all')} />
+              <Mini label={(stAud === 'close' ? '✅ ' : '') + '💚 Close friends'} onPress={() => setStAud('close')} />
+            </View>
+            <Btn label={stBusy ? 'Ruko...' : '📷 Camera se'} onPress={() => openCamera(postPhotoStory)} />
+            <Btn label="🖼️ Gallery se" onPress={pickStoryPhoto} />
+            <Text style={[s.q, { color: th.accent2 }]}>✏️ Text story</Text>
+            <TextInput style={[s.i, { height: 90, textAlignVertical: 'top' }]} multiline placeholder="Kuch likho..." placeholderTextColor={PH} value={stText} onChangeText={setStText} />
+            <View style={s.miniRow}>
+              {ST_BGS.map((c, i) => (
+                <TouchableOpacity key={c} onPress={() => setStBg(i)} style={[s.stDot, { backgroundColor: c, borderColor: stBg === i ? '#fff' : 'transparent' }]} />
+              ))}
+            </View>
+            <Btn label={stBusy ? 'Ruko...' : '📤 Text story lagao'} onPress={postTextStory} />
+            <Text style={s.hint}>Story 24 ghante baad apne aap hat jati hai.</Text>
+            <Nav label="💚 Close friends list" onPress={() => setScreen('closefr')} />
+            <Nav label={t('back')} onPress={() => setScreen('friends')} />
+          </ScrollView>
+        )}
+
+        {screen === 'closefr' && (
+          <ScrollView contentContainerStyle={sc}>
+            <Text style={[s.q, { color: th.accent2 }]}>💚 Close Friends</Text>
+            <Text style={s.sm}>Jinhe chunoge, sirf unhe "Close friends" wali story dikhegi.</Text>
+            {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : Object.keys(cloudFriends).map((k) => cloudFriends[k]).map((f) => (
+              <View key={f.uid} style={s.closeRow}>
+                <Pic uri={pics[f.uid]} emoji={f.avatar || '😎'} size={40} name={nameOf(f)} noTap />
+                <Text numberOfLines={1} style={s.closeName}>{nameOf(f)}</Text>
+                <Switch value={!!closeSet[f.uid]} onValueChange={(v) => toggleClose(f.uid, v)} />
+              </View>
+            ))}
+            <Nav label={t('back')} onPress={() => setScreen('storynew')} />
+          </ScrollView>
+        )}
 
         {screen === 'acct' && (
           <ScrollView contentContainerStyle={sc}>
@@ -3912,6 +4169,42 @@ export default function App() {
           </View>
         );
       })()}
+      {!!sv && (() => {
+        const st = sv.list[sv.idx];
+        if (!st) return null;
+        const mineSt = sv.uid === myUid;
+        const fr = cloudFriends[sv.uid];
+        const owner = mineSt ? 'Your story' : (fr ? nameOf(fr) : 'Story');
+        return (
+          <View style={s.stBg}>
+            <View style={s.stBars}>
+              {sv.list.map((x, i) => <View key={x.sid} style={[s.stBar, { backgroundColor: i < sv.idx ? '#fff' : i === sv.idx ? '#ffffffcc' : '#ffffff44' }]} />)}
+            </View>
+            <View style={s.stHead}>
+              <Pic uri={mineSt ? myPhoto : pics[sv.uid]} emoji={mineSt ? profile.avatar : (fr && fr.avatar) || '😎'} size={36} name={owner} noTap />
+              <Text style={s.stHeadT}>{owner}</Text>
+              {st.bucket === 'close' && <Text style={s.stHeadT}>💚</Text>}
+              <Text style={[s.stHeadT, { flex: 1, textAlign: 'right', opacity: 0.7, fontSize: 12 }]}>{fmtListTime(st.t)}</Text>
+              <TouchableOpacity onPress={() => setSv(null)} style={{ paddingHorizontal: 10 }}><Text style={s.stHeadT}>✕</Text></TouchableOpacity>
+            </View>
+            <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={(e) => {
+              const x = (e && e.nativeEvent && e.nativeEvent.locationX) || 0;
+              const w = typeof window !== 'undefined' ? window.innerWidth : 360;
+              if (x < w * 0.3) svPrev(); else svNext();
+            }}>
+              {st.type === 'img'
+                ? <RNImage source={{ uri: st.data }} style={s.stImg} resizeMode="contain" />
+                : <View style={[s.stTextBox, { backgroundColor: ST_BGS[st.bg || 0] }]}><Text style={s.stTextT}>{st.text}</Text></View>}
+            </TouchableOpacity>
+            {mineSt && (
+              <View style={s.stFoot}>
+                <Text style={s.stHeadT}>👁 {Object.keys(st.views || {}).length} ne dekha</Text>
+                <Mini label="🗑 Delete" onPress={() => svDelete(st)} />
+              </View>
+            )}
+          </View>
+        );
+      })()}
       {!!viewer && (
         <TouchableOpacity activeOpacity={1} onPress={() => setViewer(null)} style={s.viewerBg}>
           <RNImage source={{ uri: viewerHd && viewerHd !== 'none' ? viewerHd : viewer.uri }} style={s.viewerImg} resizeMode="contain" />
@@ -3995,7 +4288,7 @@ const s = StyleSheet.create({
   selBubble: { borderWidth: 2, borderColor: '#fff' },
   dmHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, width: '100%', paddingHorizontal: 12 },
   sendRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 8 },
-  msgInput: { flex: 1, backgroundColor: '#ffffff18', borderRadius: 22, paddingVertical: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, marginRight: 8 },
+  msgInput: { flex: 1, minWidth: 0, width: 0, backgroundColor: '#ffffff18', borderRadius: 22, paddingVertical: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, marginRight: 8 },
   attachBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff18', marginRight: 6 },
   dmPic: { width: 220, height: 220, borderRadius: 12, marginBottom: 6 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
@@ -4033,6 +4326,23 @@ const s = StyleSheet.create({
   camCountT: { color: '#fff', fontSize: 96, fontWeight: '800' },
   shutter: { width: 78, height: 78, borderRadius: 39, borderWidth: 5, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   shutterIn: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#fff' },
+  stItem: { width: 72, alignItems: 'center', marginRight: 8 },
+  stRing: { borderWidth: 3, borderRadius: 36, padding: 2 },
+  stName: { color: '#ffffffcc', fontSize: 11, marginTop: 4, width: 70, textAlign: 'center' },
+  stPlus: { position: 'absolute', right: 6, top: 42, width: 22, height: 22, borderRadius: 11, backgroundColor: '#25d366', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#1a0a12' },
+  stPlusT: { color: '#fff', fontSize: 14, fontWeight: '800', lineHeight: 16 },
+  stDot: { width: 34, height: 34, borderRadius: 17, marginHorizontal: 5, borderWidth: 3 },
+  closeRow: { flexDirection: 'row', alignItems: 'center', width: '90%', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#ffffff14' },
+  closeName: { flex: 1, color: '#fff', fontSize: 16, marginHorizontal: 12 },
+  stBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', zIndex: 1100 },
+  stBars: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 10 },
+  stBar: { flex: 1, height: 3, borderRadius: 2, marginHorizontal: 2 },
+  stHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+  stHeadT: { color: '#fff', fontSize: 15, fontWeight: '700', marginLeft: 8 },
+  stImg: { flex: 1, width: '100%' },
+  stTextBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  stTextT: { color: '#fff', fontSize: 28, fontWeight: '800', textAlign: 'center' },
+  stFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   onDot: { position: 'absolute', right: 1, bottom: 1, width: 14, height: 14, borderRadius: 7, backgroundColor: '#25d366', borderWidth: 2, borderColor: '#1a0a12' },
   tttGrid: { marginVertical: 10 },
   tttCell: { width: 92, height: 92, margin: 4, borderRadius: 16, backgroundColor: '#ffffff14', borderWidth: 1.5, borderColor: '#ffffff30', alignItems: 'center', justifyContent: 'center' },
