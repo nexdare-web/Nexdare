@@ -956,6 +956,14 @@ export default function App() {
       l.setAttribute('href', href);
       if (type) l.setAttribute('type', type);
     };
+    document.title = 'Nexdare';
+    const setMeta = (name, content) => {
+      let m = document.querySelector('meta[name="' + name + '"]');
+      if (!m) { m = document.createElement('meta'); m.setAttribute('name', name); document.head.appendChild(m); }
+      m.setAttribute('content', content);
+    };
+    setMeta('theme-color', '#000000');
+    setMeta('description', 'Nexdare - chat, games aur stories apno ke saath');
     setLink('icon', ICON_URI, 'image/png');
     setLink('apple-touch-icon', ICON_URI);
   }, []);
@@ -989,6 +997,8 @@ export default function App() {
   const [replyImg, setReplyImg] = useState(null);
   const [replyPlain, setReplyPlain] = useState(null);
   const [replyPic, setReplyPic] = useState(null);
+  const [replyRec, setReplyRec] = useState(false);
+  const replyRecRef = useRef(null);
   const scrollRef = useRef(null);
   const lastChat = useRef('');
   const lastDm = useRef('');
@@ -1081,6 +1091,8 @@ export default function App() {
   const [strShowName, setStrShowName] = useState(() => { try { return localStorage.getItem('nexdare_strname') !== '0'; } catch (e) { return true; } });
   const [stories, setStories] = useState({});
   const [svMedia, setSvMedia] = useState({});
+  const [svViews, setSvViews] = useState({});
+  const [svViewsFor, setSvViewsFor] = useState('');
   const [strAlive, setStrAlive] = useState(0);
   const [seenSt, setSeenSt] = useState(() => { try { return JSON.parse(localStorage.getItem('nexdare_seenst')) || {}; } catch (e) { return {}; } });
   const [sv, setSv] = useState(null);
@@ -1524,7 +1536,7 @@ export default function App() {
     setDmHidden(h);
     try { localStorage.setItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
     setDmMenu(''); setDmSel(null);
-    setNotice('Chat tumhare liye clear ho gayi 🧹');
+    setNotice('Delete ho gaya 🧹');
   };
   const dmClearForAll = async () => {
     if (!dmFriend || !currentUser) return;
@@ -1537,11 +1549,7 @@ export default function App() {
       const h = Array.from(new Set([...dmHidden, ...Object.keys(dmRaw)]));
       setDmHidden(h);
       try { localStorage.setItem('nexdare_dmhidden_' + cid, JSON.stringify(h)); } catch (e) {}
-      if (dmShared) {
-        const enc = await encryptText(dmShared.aes, JSON.stringify({ __s: 1, t: myDisplayName() + ' ne chat clear ki 🧹' }));
-        await push(ref(db, 'dm/' + cid + '/messages'), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
-      }
-      setNotice('Tumhari bheji saari messages sabke liye delete ho gayi 🧹');
+      setNotice('Delete ho gaya 🧹');
     } catch (e) { setError('Clear nahi hua: ' + e.message); }
   };
   const startDmCall = () => { if (dmShared) Linking.openURL('https://meet.jit.si/nexdare-' + dmShared.callHash); };
@@ -1750,7 +1758,9 @@ export default function App() {
         }
         let sys = false;
         if (text && text.indexOf('{"__s":1') === 0) { try { shown = JSON.parse(text).t; sys = true; } catch (e) {} }
-        out.push({ key: m.key, from: m.from, t: m.t, edited: !!m.edited, text: shown, file, sys, locked: text === null });
+        if (text === null) continue;
+        if (sys && /ne chat clear ki/.test(shown)) continue;
+        out.push({ key: m.key, from: m.from, t: m.t, edited: !!m.edited, text: shown, file, sys, locked: false });
       }
       const merged = [];
       for (const m of out) {
@@ -1927,6 +1937,68 @@ export default function App() {
     };
     input.click();
   };
+  const setReplyMedia = async (du) => {
+    let d = du;
+    if (String(d).indexOf('data:image') === 0) d = await compressImageTo(d, 800, 0.7);
+    setReplyImg(d);
+  };
+  const pickReplyMedia = () => {
+    if (Platform.OS !== 'web') { setNotice(t('picOnlyWeb')); return; }
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*,video/*,audio/*';
+    input.onchange = async () => {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      try {
+        if (f.type.indexOf('video/') === 0) {
+          setNotice('Video chhoti ki ja rahi hai (15 sec tak lag sakte hain)...');
+          const blob = f.size > 3 * 1024 * 1024 ? await videoToSmall(f) : f;
+          const du = await readAsDataUrl(blob);
+          setNotice('');
+          if (du.length > 4.6 * 1024 * 1024) { setError('Video bahut badi hai, 15 sec se chhoti chuno'); return; }
+          setReplyImg(du);
+        } else if (f.type.indexOf('audio/') === 0) {
+          const du = await readAsDataUrl(f);
+          if (du.length > 4.6 * 1024 * 1024) { setError('Audio bahut bada hai'); return; }
+          setReplyImg(du);
+        } else {
+          await setReplyMedia(await readAsDataUrl(f));
+        }
+      } catch (e) { setNotice(''); setError('File nahi lagi: ' + e.message); }
+    };
+    input.click();
+  };
+  const startReplyRec = async () => {
+    if (Platform.OS !== 'web' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') { setNotice('Is browser me voice record nahi hota. Chrome use karo.'); return; }
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+      const rec = new MediaRecorder(st, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : { audioBitsPerSecond: 64000 });
+      const chunks = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = async () => {
+        st.getTracks().forEach((tr) => tr.stop());
+        setReplyRec(false);
+        const blob = new Blob(chunks, { type: (rec.mimeType || 'audio/webm').split(';')[0] });
+        try {
+          const du = await readAsDataUrl(blob);
+          if (du.length > 4.6 * 1024 * 1024) { setError('Voice note bahut lamba hai'); return; }
+          setReplyImg(du);
+        } catch (e) { setError('Voice note save nahi hua'); }
+      };
+      replyRecRef.current = rec;
+      rec.start();
+      setReplyRec(true);
+      setTimeout(() => { try { if (rec.state === 'recording') rec.stop(); } catch (e) {} }, 60000);
+    } catch (e) { setNotice('Mic permission allow karo'); }
+  };
+  const stopReplyRec = () => { try { replyRecRef.current && replyRecRef.current.stop(); } catch (e) {} };
+  const mediaView = (du, small) => {
+    if (!du) return null;
+    if (du.indexOf('data:audio') === 0) return React.createElement('audio', { src: du, controls: true, style: { width: 230, margin: '8px 0' } });
+    if (du.indexOf('data:video') === 0) return React.createElement('video', { src: du, controls: true, playsInline: true, style: { width: small ? 200 : 260, maxHeight: small ? 260 : 340, borderRadius: 14, backgroundColor: '#000', margin: '8px 0' } });
+    return <RNImage source={{ uri: du }} style={small ? s.picSmall : s.pic} resizeMode={small ? 'cover' : 'contain'} />;
+  };
   const sendReply = async () => {
     const text = replyText.trim();
     if (!text && !replyImg) { setNotice(t('needTextOrPic')); return; }
@@ -1938,7 +2010,7 @@ export default function App() {
         const encI = await encryptText(rshared.aes, replyImg);
         await set(ref(db, 'chats/img-' + roomCode), { rid, iv: encI.iv, ct: encI.ct });
       }
-      await update(roomRef(), { reply: { iv: encT.iv, ct: encT.ct, from: role, rid, img: !!replyImg } });
+      await update(roomRef(), { reply: { iv: encT.iv, ct: encT.ct, from: role, rid, img: !!replyImg, mt: replyImg ? String(replyImg).slice(5, String(replyImg).indexOf('/')) : '' } });
       setReplyText(''); setReplyImg(null); setNotice('');
       playSound('msg', soundOn);
     } catch (e) { setError('Jawab nahi gaya: ' + e.message); }
@@ -3066,7 +3138,18 @@ export default function App() {
     const tm = setTimeout(svNext, curSt.type === 'vid' ? 17000 : 6000);
     return () => clearTimeout(tm);
   }, [sv && sv.uid, sv && sv.idx, curMedia]);
-  useEffect(() => { if (!sv) setSvMedia({}); }, [!!sv]);
+  useEffect(() => { if (!sv) { setSvMedia({}); setSvViewsFor(''); } }, [!!sv]);
+  useEffect(() => {
+    if (!sv || !currentUser || sv.uid !== currentUser.uid) return;
+    const st = sv.list[sv.idx];
+    if (!st) return;
+    let c = false;
+    const load = () => call('GET', 'stories/' + st.uid + '/' + st.bucket + '/' + st.sid + '/views')
+      .then((v) => { if (!c) setSvViews((p) => ({ ...p, [st.sid]: v || {} })); }).catch(() => {});
+    load();
+    const tm = setInterval(load, 4000);
+    return () => { c = true; clearInterval(tm); };
+  }, [sv && sv.uid, sv && sv.idx]);
   const svDelete = async (st) => {
     try { await remove(ref(db, 'stories/' + currentUser.uid + '/' + st.bucket + '/' + st.sid)); await remove(ref(db, 'stories/' + currentUser.uid + '/' + st.bucket + 'M/' + st.sid)).catch(() => {}); } catch (e) { setError('Delete nahi hua: ' + e.message); }
     setSv(null); loadStories();
@@ -3399,7 +3482,6 @@ export default function App() {
       const lblBot = 'P1' + (me === 'P1' ? ' (You)' : '');
       return (<>
         <Text style={s.sm}>{t('youAre')} {me}</Text>
-        <Text style={s.sm}>Bottle jiski taraf ruke, wo pehla sawal puchhega 🍾</Text>
         <View style={s.bottleWrap}>
           <Text style={[s.bottleLbl, { top: 4, color: th.accent2 }]}>{lblTop}</Text>
           <Animated.View style={{ width: 60, height: 200, alignItems: 'center', transform: [{ rotate: rot }] }}>
@@ -3441,21 +3523,28 @@ export default function App() {
               <View style={s.replyBox}>
                 <Text style={s.bname}>{replyPlain.from === me ? t('yourAnswer') : t('partnerAnswer')}</Text>
                 {!!replyPlain.text && <Text style={s.btext}>{replyPlain.text}</Text>}
-                {!!replyPic && <RNImage source={{ uri: replyPic }} style={s.pic} resizeMode="contain" />}
+                {!!replyPic && mediaView(replyPic, false)}
                 {replyPlain.hasImg && !replyPic && <Text style={s.sm}>Pic loading...</Text>}
               </View>
             )}
             {!iAsk && !replyPlain && (subtle ? (<>
               <TextInput style={s.i2} placeholder={t('writeAnswer')} placeholderTextColor="#ffffff88" value={replyText} onChangeText={setReplyText} multiline />
-              {!!replyImg && <RNImage source={{ uri: replyImg }} style={s.picSmall} resizeMode="cover" />}
-              <Nav label={replyImg ? t('changePic') : t('pickPic')} onPress={pickImage} />
+              {!!replyImg && mediaView(replyImg, true)}
+              {replyRec ? <Btn label="⏹ Voice note rok do" onPress={stopReplyRec} /> : (
+                <View style={s.miniRow}>
+                  <Mini label="📷 Photo / Video" onPress={() => openCamera(setReplyMedia, { video: true })} />
+                  <Mini label="🎤 Voice" onPress={startReplyRec} />
+                  <Mini label="🖼️ Gallery" onPress={pickReplyMedia} />
+                </View>
+              )}
+              {!!replyImg && !replyRec && <Mini label="✕ Hatao" onPress={() => setReplyImg(null)} />}
               <Btn label={t('sendAnswer')} onPress={sendReply} />
             </>) : <Text style={s.sm}>{t('needBrowser')}</Text>)}
             {iAsk ? (<>
               {!replyPlain && <Text style={s.sm}>{t('waitAnswer')}</Text>}
               <Btn label={t('donePlus')} onPress={() => judge(1)} />
               <Btn label={t('failedMinus')} onPress={() => judge(-1)} />
-            </>) : <Text style={s.sm}>Answer or perform! {room.asker} will decide.</Text>}
+            </>) : null}
           </>)}
           <Nav label={t('endGame')} onPress={endGame} />
         </ScrollView>
@@ -3538,7 +3627,7 @@ export default function App() {
         const sc = d.scores || {};
         const msg = d.status === 'win' ? (d.winner === currentUser.uid ? '🎉 Tum jeet gaye!' : '😅 ' + palName + ' jeet gaya') : d.status === 'draw' ? '🤝 Draw!' : myTurn ? 'Teri baari ✨' : palName + ' ki baari...';
         return (<>
-          <Text style={s.sm}>Tum {meX ? 'X' : 'O'} • {palName} {meX ? 'O' : 'X'} • X pehle chalta hai</Text>
+          <Text style={s.sm}>Tum {meX ? 'X' : 'O'} • {palName} {meX ? 'O' : 'X'}</Text>
           <Text style={s.bt}>{msg}</Text>
           {grid(d.board, line, myTurn, tttMove)}
           <Text style={s.sm}>Score - Tum: {sc[currentUser.uid] || 0} • {palName}: {sc[pal.uid] || 0} • Draw: {sc.draw || 0}</Text>
@@ -3570,7 +3659,7 @@ export default function App() {
     if (!pal || palPicking) {
       const fl = Object.keys(cloudFriends).map((k) => cloudFriends[k]);
       return (<>
-        <Text style={s.sm}>Kiske saath khelna hai? Apne 💌 Message wale dost me se chuno</Text>
+        <Text style={s.sm}>Kiske saath khelna hai?</Text>
         {fl.length === 0 && <Text style={s.sm}>Abhi koi friend nahi hai. Pehle Message me friend add karo.</Text>}
         <View style={{ width: '100%' }}>
           {fl.map((f) => chatRow({ rowKey: f.uid, uri: pics[f.uid], emoji: f.avatar || '😎', title: nameOf(f), sub: '@' + f.username, getHd: hdOf(f.uid), onPress: () => choosePal(f) }))}
@@ -3623,7 +3712,6 @@ export default function App() {
     const scoreLine = <Text style={s.bt}>Tum: {scs[me] || 0}  |  {palName}: {scs[other] || 0}</Text>;
     if (!quiz) {
       return (<>
-        <Text style={s.sm}>Ek partner apne baare me sawal chunta hai aur jawab chhupa leta hai. Doosra guess karta hai. Sahi guess par +1 💘</Text>
         <Btn label="Shuru karo 💘" onPress={() => quizStart(me)} />
       </>);
     }
@@ -3631,7 +3719,7 @@ export default function App() {
     let body = null;
     if (quiz.stage === 'pick') {
       body = iAsk ? (<>
-        <Text style={s.sm}>Apne baare me sawal chuno (badal bhi sakte ho) aur sachcha jawab likho. Partner ko jawab nahi dikhega.</Text>
+        <Text style={s.sm}>Apne baare me sawal chuno aur sachcha jawab likho</Text>
         <TextInput style={s.i2} multiline placeholder="Sawal" placeholderTextColor={PH} value={quizQ} onChangeText={setQuizQ} />
         <Mini label="🎲 Doosra sawal" onPress={pickQuizQ} />
         <TextInput style={s.i} placeholder="Tumhara jawab" placeholderTextColor={PH} value={quizIn} onChangeText={setQuizIn} />
@@ -3698,7 +3786,6 @@ export default function App() {
           <Text style={s.btext}>{dailyPlain[pal.uid] || '...'}</Text>
         </View>
       </>)}
-      <Text style={s.sm}>Streak tab badhta hai jab dono roz jawab dete ho.</Text>
     </>);
   };
 
@@ -3728,7 +3815,7 @@ export default function App() {
         <Btn label={t('save')} onPress={memSaveStart} />
       </>)}
       <Text style={[s.q, { color: th.accent2 }]}>Khaas din</Text>
-      {memPlain.length === 0 && <Text style={s.sm}>Abhi koi khaas din nahi. Neeche jodo (jaise pehli date, trip, birthday).</Text>}
+      {memPlain.length === 0 && <Text style={s.sm}>Abhi koi khaas din nahi.</Text>}
       {memPlain.map((e) => (
         <View key={e.id} style={[s.card, { borderColor: th.accent + '55', width: '90%' }]}>
           <Text style={[s.cardT, { color: th.accent2 }]}>{e.title}</Text>
@@ -3744,7 +3831,7 @@ export default function App() {
 
   const noteWhenOpts = [['now', 'Abhi'], ['1h', '1 ghante baad'], ['pm9', 'Aaj raat 9 baje'], ['am8', 'Kal subah 8 baje']];
   const renderNotes = () => (<>
-    <Text style={s.sm}>Ek love note likho. Partner use tabhi khol payega jab tum chaho 💌</Text>
+    <Text style={s.sm}>Ek love note likho 💌</Text>
     <TextInput style={s.i2} multiline placeholder="Tumhara note" placeholderTextColor={PH} value={noteText} onChangeText={setNoteText} />
     <Text style={s.sm}>Kab khule?</Text>
     <View style={s.miniRow}>
@@ -3848,7 +3935,6 @@ export default function App() {
         </>)}
 
         {screen === 'tdhub' && (<>
-          <Text style={s.sm}>Dono players ko ek room code se jodo. Bottle ghumake shuru hota hai.</Text>
           <View style={s.sideRow}>
             <TouchableOpacity style={[s.b, s.bHalf, { backgroundColor: th.accent, shadowColor: th.accent }]} onPress={() => { playSound('click', soundOn); createRoom(); }}>
               <Text style={[s.bt, { textAlign: 'center' }]}>{t('createRoom')}</Text>
@@ -3956,7 +4042,6 @@ export default function App() {
 
         {screen === 'style' && (
           <ScrollView contentContainerStyle={sc}>
-            <Text style={s.sm}>Wallpaper theme chuno: wallpaper, colours aur button ka look sab badal jayega 💞</Text>
             <View style={s.themeGrid}>
               {Object.keys(skins).map((k) => (
                 <TouchableOpacity key={k} activeOpacity={0.8} style={[s.themeCard, skin === k ? { borderColor: skins[k].accent, borderWidth: 3 } : null]}
@@ -3977,7 +4062,6 @@ export default function App() {
                 <Mini key={d[0]} label={(wallDim === d[0] ? '✅ ' : '') + d[1]} onPress={() => { setWallDim(d[0]); try { localStorage.setItem('nexdare_walldim', d[0]); } catch (e) {} }} />
               ))}
             </View>
-            {!!bgPhoto && !!skin && <Text style={s.sm}>Abhi tumhari apni background photo lagi hai, wo wallpaper ke upar dikhegi. Wallpaper dekhne ke liye neeche "Hatao" dabao.</Text>}
             <Text style={s.sm}>Apni photo (profile aur chats me dikhegi)</Text>
             <Pic uri={myPhoto} emoji={profile.avatar} size={70} name={myLetterName} getHd={myPhotoHd ? async () => myPhotoHd : undefined} />
             <Mini label="📷 Apni photo lagao" onPress={() => pickPhoto('me')} />
@@ -4134,12 +4218,10 @@ export default function App() {
               <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Naye group ka naam" placeholderTextColor={PH} value={grpNewName} onChangeText={setGrpNewName} onSubmitEditing={createGroup} />
               <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={createGroup}><Text style={s.roundT}>➕</Text></TouchableOpacity>
             </View>
-            <Text style={s.hint}>Naam likho aur ➕ dabao: naya group ban jayega</Text>
             <View style={s.joinRow}>
               <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Group code" placeholderTextColor={PH} autoCapitalize="none" value={grpJoinCode} onChangeText={setGrpJoinCode} onSubmitEditing={joinGroup} />
               <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={joinGroup}><Text style={s.roundT}>🔑</Text></TouchableOpacity>
             </View>
-            <Text style={s.hint}>Dost ka code daalo aur 🔑 dabao: group join ho jayega</Text>
             <Text style={[s.q, { color: th.accent2 }]}>Mere groups</Text>
             {Object.keys(groupList).length === 0 ? <Text style={s.sm}>Abhi koi group nahi. Naya banao ya code se join karo.</Text> : (
               <View style={{ width: '100%' }}>
@@ -4203,7 +4285,7 @@ export default function App() {
               </View>
             </View>
           )}
-          <Text style={s.sm}>🔒 End-to-end encrypted • sirf code wale padh sakte hain</Text>
+          <Text style={s.sm}>🔒 End-to-end encrypted</Text>
           <ScrollView ref={grpScrollRef} style={[s.msgBox, mbH]} onContentSizeChange={() => grpScrollRef.current && grpScrollRef.current.scrollToEnd({ animated: true })}>
             {grpVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
             {grpVisible.map((m) => {
@@ -4255,8 +4337,8 @@ export default function App() {
                 <Mini label="Abuse" onPress={() => reportUser('Abuse')} />
                 <Mini label="Fake account" onPress={() => reportUser('Fake account')} />
               </>) : dmMenu === 'clear' ? (<>
-                <Mini label="🙈 Sirf mere liye" onPress={dmClearForMe} />
-                <Mini label="🗑️ Sabke liye" onPress={dmClearForAll} />
+                <Mini label="Delete for me" onPress={dmClearForMe} />
+                <Mini label="Delete for everyone" onPress={dmClearForAll} />
               </>) : (<>
                 <Mini label={dmMenu === 'blockConfirm' ? 'Pakka block?' : '🚫 Block'} onPress={() => (dmMenu === 'blockConfirm' ? blockUser(dmFriend) : setDmMenu('blockConfirm'))} />
                 <Mini label="⚠️ Report" onPress={() => setDmMenu('report')} />
@@ -4266,14 +4348,11 @@ export default function App() {
               <Mini label={t('cancel')} onPress={() => setDmMenu('')} />
             </View>
           )}
-          {dmMenu === 'clear' && <Text style={s.hint}>Sirf mere liye: saari chat tumhare phone se chhup jayegi. Sabke liye: tumhari bheji saari messages dono taraf se hat jayengi (dost ki apni messages unke paas rahengi, tumhare liye chhup jayengi).</Text>}
           <Text style={s.sm}>{dmShared ? t('e2e') + dmShared.safety : !ident ? '⏳ Key ban rahi hai...' : !dmPubStr ? '⏳ Friend ki encryption key abhi nahi mili. Unhe site kholkar Message screen par aane ko bolo.' : '⚠️ Encryption key match nahi hui'}</Text>
           <ScrollView ref={dmScrollRef} style={[s.msgBox, mbH]} onContentSizeChange={() => dmScrollRef.current && dmScrollRef.current.scrollToEnd({ animated: true })}>
             {dmVisible.length === 0 && <Text style={s.sm}>{t('noMsg')}</Text>}
-            {dmVisible.some((m) => m.locked) && <Text style={s.hint}>Dost ya tumne app data clear ya reinstall kiya to purani key chali jati hai. Purani messages nahi khulti, nayi messages normal chalengi.</Text>}
             {dmVisible.map((m) => {
               if (m.sys) return <Text key={m.key} style={s.sysMsg}>{m.text}</Text>;
-              if (m.locked) return <Text key={m.key} style={s.sysMsg}>{'🔒 ' + (m.count > 1 ? m.count + ' purani messages' : 'Ek purani message') + ' nahi khul sakte (key badal gayi)'}</Text>;
               const mine = myUid && m.from === myUid;
               const sel = dmSel && dmSel.key === m.key;
               const data = m.file ? dmImgs[m.file.id] : null;
@@ -4364,7 +4443,7 @@ export default function App() {
                   <Mini label="⏹ Stop" onPress={() => { setStrMenu(false); strStop(false); }} />
                 </View>
               )}
-              <ScrollView ref={strScroll} style={[s.msgBox, mbH]} onContentSizeChange={() => strScroll.current && strScroll.current.scrollToEnd({ animated: true })}>
+              <ScrollView ref={strScroll} style={[s.msgBox, mbH, { height: mbH.maxHeight }]} onContentSizeChange={() => strScroll.current && strScroll.current.scrollToEnd({ animated: true })}>
                 {strPlain.map((m) => (
                   <View key={m.key} style={[s.bubble, m.mine ? [s.mine, { backgroundColor: th.accent }] : s.theirs]}>
                     <Text style={s.bname}>{m.mine ? t('you') : ((strPeer && strPeer.name) || 'Stranger')}</Text>
@@ -4398,7 +4477,6 @@ export default function App() {
             </View>
             <Btn label={stBusy ? 'Ruko...' : '📷 Camera se (photo / video)'} onPress={() => openCamera(postCamStory, { video: true })} />
             <Btn label="🖼️ Gallery se (photo / video)" onPress={pickStoryMedia} />
-            <Text style={s.hint}>Video max 15 sec ki rakho.</Text>
             <Text style={[s.q, { color: th.accent2 }]}>✏️ Text story</Text>
             <TextInput style={[s.i, { height: 90, textAlignVertical: 'top' }]} multiline placeholder="Kuch likho..." placeholderTextColor={PH} value={stText} onChangeText={setStText} />
             <View style={s.miniRow}>
@@ -4407,7 +4485,6 @@ export default function App() {
               ))}
             </View>
             <Btn label={stBusy ? 'Ruko...' : '📤 Text story lagao'} onPress={postTextStory} />
-            <Text style={s.hint}>Story 24 ghante baad apne aap hat jati hai.</Text>
             <Nav label="💚 Close friends list" onPress={() => setScreen('closefr')} />
             <Nav label={t('back')} onPress={() => setScreen('friends')} />
           </ScrollView>
@@ -4416,7 +4493,6 @@ export default function App() {
         {screen === 'closefr' && (
           <ScrollView contentContainerStyle={sc}>
             <Text style={[s.q, { color: th.accent2 }]}>💚 Close Friends</Text>
-            <Text style={s.sm}>Jinhe chunoge, sirf unhe "Close friends" wali story dikhegi.</Text>
             {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : Object.keys(cloudFriends).map((k) => cloudFriends[k]).map((f) => (
               <View key={f.uid} style={s.closeRow}>
                 <Pic uri={pics[f.uid]} emoji={f.avatar || '😎'} size={40} name={nameOf(f)} noTap />
@@ -4606,12 +4682,36 @@ export default function App() {
                     : <RNImage source={{ uri: media }} style={s.stImg} resizeMode="contain" />;
                 })()}
             </TouchableOpacity>
-            {mineSt && (
-              <View style={s.stFoot}>
-                <Text style={s.stHeadT}>👁 {Object.keys(st.views || {}).length} ne dekha</Text>
-                <Mini label="🗑 Delete" onPress={() => svDelete(st)} />
-              </View>
-            )}
+            {mineSt && (() => {
+              const vw = svViews[st.sid] || st.views || {};
+              const ids = Object.keys(vw).sort((a, b) => vw[b] - vw[a]);
+              return (<>
+                {svViewsFor === st.sid && (
+                  <View style={s.stViews}>
+                    <Text style={s.stHeadT}>Kisne dekha</Text>
+                    <ScrollView style={{ maxHeight: 190 }}>
+                      {ids.length === 0 && <Text style={s.sm}>Abhi kisi ne nahi dekha</Text>}
+                      {ids.map((u) => {
+                        const f = cloudFriends[u];
+                        return (
+                          <View key={u} style={s.stViewRow}>
+                            <Pic uri={pics[u]} emoji={(f && f.avatar) || '😎'} size={32} name={f ? nameOf(f) : '?'} noTap />
+                            <Text numberOfLines={1} style={s.stViewName}>{f ? nameOf(f) : 'Friend'}</Text>
+                            <Text style={s.stViewTime}>{fmtListTime(vw[u])}</Text>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+                <View style={s.stFoot}>
+                  <TouchableOpacity onPress={() => setSvViewsFor(svViewsFor === st.sid ? '' : st.sid)}>
+                    <Text style={s.stHeadT}>👁 {ids.length} ne dekha ›</Text>
+                  </TouchableOpacity>
+                  <Mini label="🗑 Delete" onPress={() => svDelete(st)} />
+                </View>
+              </>);
+            })()}
           </View>
         );
       })()}
@@ -4733,6 +4833,10 @@ const s = StyleSheet.create({
   strGoS: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 2 },
   strChip: { backgroundColor: '#ffffff18', borderRadius: 18, paddingVertical: 9, paddingHorizontal: 16, marginTop: 28 },
   sysMsg: { color: '#ffffffaa', fontSize: 12, textAlign: 'center', marginVertical: 8, paddingHorizontal: 20 },
+  stViews: { backgroundColor: '#000000dd', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 },
+  stViewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+  stViewName: { flex: 1, color: '#fff', fontSize: 15, marginLeft: 10 },
+  stViewTime: { color: '#ffffff99', fontSize: 12 },
   recT: { color: '#fff', fontWeight: '800', fontSize: 15, backgroundColor: '#000000aa', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   camTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   camChip: { backgroundColor: '#ffffff22', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 14 },
