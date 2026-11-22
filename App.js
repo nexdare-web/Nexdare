@@ -943,6 +943,14 @@ const compressImageTo = (dataUrl, max, q) => new Promise((res, rej) => {
 });
 // ===== GAMES + COUPLE DATA END =====
 
+// ---- Security switch: jab tak Firebase Rules pakke na ho, ye 5 features band hain (code delete nahi hua). Rules theek hone ke baad true karke on kar sakte ho ----
+const FEATURES = { stranger: false, groups: false, secretChat: false, rooms: false, couple: false };
+const BLOCKED_SCREENS = { stranger: 'stranger', groups: 'groups', chat: 'secretChat', join: 'rooms', room: 'rooms', tdhub: 'rooms', couple: 'couple', daily: 'couple', mem: 'couple', album: 'couple', notes: 'couple', wyr: 'couple', nhie: 'couple', quiz: 'couple', ttt: 'couple' };
+const screenBlocked = (sc) => {
+  if (sc === 'games') return !FEATURES.rooms && !FEATURES.couple;
+  return !!BLOCKED_SCREENS[sc] && !FEATURES[BLOCKED_SCREENS[sc]];
+};
+
 export default function App() {
   const [page, setPage] = useState(1);
   const [screen, setScreen] = useState('home');
@@ -956,14 +964,14 @@ export default function App() {
       l.setAttribute('href', href);
       if (type) l.setAttribute('type', type);
     };
-    document.title = 'Nexdare';
+    document.title = 'NexDare – Chat, Games & Truth or Dare';
     const setMeta = (name, content) => {
       let m = document.querySelector('meta[name="' + name + '"]');
       if (!m) { m = document.createElement('meta'); m.setAttribute('name', name); document.head.appendChild(m); }
       m.setAttribute('content', content);
     };
     setMeta('theme-color', '#000000');
-    setMeta('description', 'Nexdare - chat, games aur stories apno ke saath');
+    setMeta('description', 'NexDare is a Truth or Dare, chat and games app for friends and couples. Private encrypted chats, group chats, stories, Tic Tac Toe, love quiz and more. Play now!');
     setLink('icon', ICON_URI, 'image/png');
     setLink('apple-touch-icon', ICON_URI);
   }, []);
@@ -3318,6 +3326,7 @@ export default function App() {
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
   const grpVisible = grpPlain.filter((m) => !grpHidden.includes(m.key));
+  useEffect(() => { if (screenBlocked(screen)) { setScreen('home'); setPage(3); } }, [screen]);
   const mbH = { maxHeight: Math.max(280, (typeof window !== 'undefined' ? window.innerHeight : 700) - 330) };
   const nickPanel = () => (nickEdit ? (
     <View style={s.joinRow}>
@@ -3926,11 +3935,11 @@ export default function App() {
         </>)}
 
         {screen === 'games' && (<>
-          <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />
-          <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />
-          <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
-          <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
-          <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />
+          {FEATURES.rooms && <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />}
+          {FEATURES.couple && <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />}
+          {FEATURES.couple && <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />}
+          {FEATURES.couple && <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />}
+          {FEATURES.couple && <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />}
           <Nav label={t('back')} onPress={backToTools} />
         </>)}
 
@@ -3947,11 +3956,11 @@ export default function App() {
         </>)}
 
         {screen === 'home' && page === 3 && (<>
-          <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />
-          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
-          <Btn label="🌍 Stranger Chat" onPress={() => { setError(''); setNotice(''); setScreen('stranger'); }} />
+          {(FEATURES.rooms || FEATURES.couple) && <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />}
+          {FEATURES.groups && <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />}
+          {FEATURES.stranger && <Btn label="🌍 Stranger Chat" onPress={() => { setError(''); setNotice(''); setScreen('stranger'); }} />}
           <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
-          <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />
+          {FEATURES.couple && <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />}
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
           <Btn label={t('settings')} onPress={() => setScreen('settings')} />
           <Nav label={t('back')} onPress={() => setPage(1)} />
