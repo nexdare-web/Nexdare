@@ -71,12 +71,18 @@ const ref = (_db, path, query) => ({ path, query });
 const listeners = new Set();
 const pollAll = () => listeners.forEach((f) => f());
 
+const buildDbUrl = (path, token, query) => {
+  const cleanPath = String(path || '').replace(/^\\/+|\\/+$/g, '');
+  const parts = [];
+  if (token) parts.push('auth=' + encodeURIComponent(token));
+  if (query) parts.push(query);
+  return DB_URL + (cleanPath ? '/' + cleanPath : '') + '.json' + (parts.length ? '?' + parts.join('&') : '');
+};
+
 const call = async (method, path, body, query) => {
   const tok = await getToken();
-  const parts = [];
-  if (tok) parts.push('auth=' + tok);
-  if (query) parts.push(query);
-  const res = await fetch(DB_URL + '/' + path + '.json' + (parts.length ? '?' + parts.join('&') : ''), {
+  const url = buildDbUrl(path, tok, query);
+  const res = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -119,7 +125,7 @@ const onValue = (r, cb) => {
   };
   listeners.add(poll);
   poll();
-  const timer = setInterval(poll, 600);
+  const timer = setInterval(poll, 1500);
   return () => { stopped = true; clearInterval(timer); listeners.delete(poll); };
 };
 
@@ -943,14 +949,6 @@ const compressImageTo = (dataUrl, max, q) => new Promise((res, rej) => {
 });
 // ===== GAMES + COUPLE DATA END =====
 
-// ---- Security switch: jab tak Firebase Rules pakke na ho, ye 5 features band hain (code delete nahi hua). Rules theek hone ke baad true karke on kar sakte ho ----
-const FEATURES = { stranger: false, groups: false, secretChat: false, rooms: false, couple: false };
-const BLOCKED_SCREENS = { stranger: 'stranger', groups: 'groups', chat: 'secretChat', join: 'rooms', room: 'rooms', tdhub: 'rooms', couple: 'couple', daily: 'couple', mem: 'couple', album: 'couple', notes: 'couple', wyr: 'couple', nhie: 'couple', quiz: 'couple', ttt: 'couple' };
-const screenBlocked = (sc) => {
-  if (sc === 'games') return !FEATURES.rooms && !FEATURES.couple;
-  return !!BLOCKED_SCREENS[sc] && !FEATURES[BLOCKED_SCREENS[sc]];
-};
-
 export default function App() {
   const [page, setPage] = useState(1);
   const [screen, setScreen] = useState('home');
@@ -964,21 +962,21 @@ export default function App() {
       l.setAttribute('href', href);
       if (type) l.setAttribute('type', type);
     };
-    document.title = 'NexDare – Chat, Games & Truth or Dare';
+    document.title = 'Nexdare';
     const setMeta = (name, content) => {
       let m = document.querySelector('meta[name="' + name + '"]');
       if (!m) { m = document.createElement('meta'); m.setAttribute('name', name); document.head.appendChild(m); }
       m.setAttribute('content', content);
     };
     setMeta('theme-color', '#000000');
-    setMeta('description', 'NexDare is a Truth or Dare, chat and games app for friends and couples. Private encrypted chats, group chats, stories, Tic Tac Toe, love quiz and more. Play now!');
+    setMeta('description', 'Nexdare - chat, games aur stories apno ke saath');
     setLink('icon', ICON_URI, 'image/png');
     setLink('apple-touch-icon', ICON_URI);
   }, []);
   const splashAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(splashAnim, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-    const timer = setTimeout(() => setShowSplash(false), 2000);
+    const timer = setTimeout(() => setShowSplash(false), 1250);
     return () => clearTimeout(timer);
   }, []);
   const [role, setRole] = useState(null);
@@ -1421,7 +1419,16 @@ export default function App() {
     } catch (e) { setError('Accept nahi hua: ' + e.message); }
   };
   const declineRequest = async (r) => { try { await remove(ref(db, 'friendReqs/' + currentUser.uid + '/' + r.uid)); } catch (e) { setError('Error: ' + e.message); } };
-  const removeCloudFriend = async (f) => { try { await remove(ref(db, 'friends/' + currentUser.uid + '/' + f.uid)); } catch (e) { setError('Error: ' + e.message); } };
+  const removeCloudFriend = async (f) => {
+    if (!f || !currentUser) return;
+    try {
+      const updates = {};
+      updates['friends/' + currentUser.uid + '/' + f.uid] = null;
+      updates['friends/' + f.uid + '/' + currentUser.uid] = null;
+      await call('PATCH', '', updates);
+      pollAll();
+    } catch (e) { setError('Error: ' + e.message); }
+  };
 
   const openDm = (f) => {
     setDmFriend(f); setDmShared(null); setDmPlain([]); setDmRaw({}); setDmProf(null); setDmSeen({});
@@ -3267,9 +3274,12 @@ export default function App() {
   const blockUser = async (f) => {
     if (!f || !currentUser) return;
     try {
-      await set(ref(db, 'blocks/' + currentUser.uid + '/' + f.uid), { username: f.username, name: f.name || f.username, t: Date.now() });
-      await remove(ref(db, 'friends/' + currentUser.uid + '/' + f.uid)).catch(() => {});
-      await remove(ref(db, 'friends/' + f.uid + '/' + currentUser.uid)).catch(() => {});
+      const updates = {};
+      updates['blocks/' + currentUser.uid + '/' + f.uid] = { username: f.username, name: f.name || f.username, t: Date.now() };
+      updates['friends/' + currentUser.uid + '/' + f.uid] = null;
+      updates['friends/' + f.uid + '/' + currentUser.uid] = null;
+      await call('PATCH', '', updates);
+      pollAll();
       setDmMenu(''); leaveDm(); setNotice('@' + f.username + ' block ho gaya 🚫');
     } catch (e) { setError('Block nahi hua: ' + e.message); }
   };
@@ -3326,7 +3336,6 @@ export default function App() {
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
   const grpVisible = grpPlain.filter((m) => !grpHidden.includes(m.key));
-  useEffect(() => { if (screenBlocked(screen)) { setScreen('home'); setPage(3); } }, [screen]);
   const mbH = { maxHeight: Math.max(280, (typeof window !== 'undefined' ? window.innerHeight : 700) - 330) };
   const nickPanel = () => (nickEdit ? (
     <View style={s.joinRow}>
@@ -3935,11 +3944,11 @@ export default function App() {
         </>)}
 
         {screen === 'games' && (<>
-          {FEATURES.rooms && <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />}
-          {FEATURES.couple && <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />}
-          {FEATURES.couple && <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />}
-          {FEATURES.couple && <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />}
-          {FEATURES.couple && <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />}
+          <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />
+          <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />
+          <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
+          <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
+          <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />
           <Nav label={t('back')} onPress={backToTools} />
         </>)}
 
@@ -3956,11 +3965,11 @@ export default function App() {
         </>)}
 
         {screen === 'home' && page === 3 && (<>
-          {(FEATURES.rooms || FEATURES.couple) && <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />}
-          {FEATURES.groups && <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />}
-          {FEATURES.stranger && <Btn label="🌍 Stranger Chat" onPress={() => { setError(''); setNotice(''); setScreen('stranger'); }} />}
+          <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />
+          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
+          <Btn label="🌍 Stranger Chat" onPress={() => { setError(''); setNotice(''); setScreen('stranger'); }} />
           <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
-          {FEATURES.couple && <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />}
+          <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
           <Btn label={t('settings')} onPress={() => setScreen('settings')} />
           <Nav label={t('back')} onPress={() => setPage(1)} />
