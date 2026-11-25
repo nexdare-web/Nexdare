@@ -457,6 +457,14 @@ const safetyCode = async (a, b) => {
   return hex(d).slice(0, 20).match(/.{1,5}/g).join(' ');
 };
 
+// Only open the trusted Jitsi host with a locally-derived 24-char hex room ID.
+// Never allow remote/user-provided values to choose a URL or URL scheme.
+const openNexDareCall = (callHash) => {
+  if (typeof callHash !== 'string' || !/^[a-f0-9]{24}$/i.test(callHash)) return;
+  const url = 'https://meet.jit.si/nexdare-' + callHash.toLowerCase();
+  Linking.openURL(url).catch(() => {});
+};
+
 const encryptText = async (aes, text) => {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, aes, enc8(text));
@@ -1820,7 +1828,7 @@ export default function App() {
       setNotice('Delete ho gaya 🧹');
     } catch (e) { setError('Clear nahi hua: ' + e.message); }
   };
-  const startDmCall = () => { if (dmShared) Linking.openURL('https://meet.jit.si/nexdare-' + dmShared.callHash); };
+  const startDmCall = () => { if (dmShared) openNexDareCall(dmShared.callHash); };
 
   const keysStr = chatData && chatData.keys ? JSON.stringify(chatData.keys) : '';
   const roomKeysStr = room && room.keys ? JSON.stringify(room.keys) : '';
@@ -2376,7 +2384,7 @@ export default function App() {
       } catch (e) { setError('Save nahi ho paya: ' + e.message); }
     } else { try { await Share.share({ message: body }); } catch (e) {} }
   };
-  const startChatCall = () => { if (shared) Linking.openURL('https://meet.jit.si/nexdare-' + shared.callHash); };
+  const startChatCall = () => { if (shared) openNexDareCall(shared.callHash); };
 
   const clearAllData = () => {
     try {
@@ -2916,9 +2924,16 @@ export default function App() {
     if (!palAes || !quiz) { setQuizPlain({}); return; }
     let c = false;
     (async () => {
-      const a = quiz.a ? await decryptText(palAes, quiz.a) : null;
-      const g = quiz.g ? await decryptText(palAes, quiz.g) : null;
-      if (!c) setQuizPlain({ a, g });
+      try {
+        const a = quiz.a ? await decryptText(palAes, quiz.a) : null;
+        const g = quiz.g ? await decryptText(palAes, quiz.g) : null;
+        if (!c) setQuizPlain({ a, g });
+      } catch (e) {
+        if (!c) {
+          setQuizPlain({});
+          setError('Love Quiz ka encrypted data read nahi ho paya. Partner ki encryption key check karo.');
+        }
+      }
     })();
     return () => { c = true; };
   }, [palAes, JSON.stringify(quiz)]);
@@ -3978,7 +3993,7 @@ export default function App() {
   );
   const pairGate = (content) => {
     if (!subtle) return <Text style={s.sm}>{t('needBrowserChat')}</Text>;
-    if (!pal || palPicking) {
+    if (!pal || !pal.uid || !pal.chatId || palPicking) {
       const fl = Object.keys(cloudFriends).map((k) => cloudFriends[k]);
       return (<>
         <Text style={s.sm}>Kiske saath khelna hai?</Text>
@@ -4028,6 +4043,10 @@ export default function App() {
   };
 
   const renderQuiz = () => {
+    // renderQuiz() is evaluated before pairGate() receives its content.
+    // Guard here so a missing/unselected partner shows the friend picker
+    // instead of crashing the entire screen with a blank render.
+    if (!pal || !pal.uid || !pal.chatId) return null;
     const me = myUidX;
     const other = pal.uid;
     const scs = (quiz && quiz.scores) || {};
