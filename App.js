@@ -15,6 +15,84 @@ if (typeof localStorage === 'undefined') {
 
 const FIREBASE_API_KEY = 'AIzaSyCOon-MP5tYqOgBDOjkodb_4vKHMVyBEPk';
 
+// Personal browser caches are session-scoped. Non-sensitive preferences and
+// translation caches remain in localStorage for convenience.
+const privateSessionStore = (() => {
+  const memory = {};
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) return window.sessionStorage;
+  } catch (e) {}
+  return {
+    getItem: (k) => Object.prototype.hasOwnProperty.call(memory, k) ? memory[k] : null,
+    setItem: (k, v) => { memory[k] = String(v); },
+    removeItem: (k) => { delete memory[k]; },
+    key: (i) => Object.keys(memory)[i] || null,
+    get length() { return Object.keys(memory).length; },
+  };
+})();
+const isPrivateCacheKey = (key) => {
+  const k = String(key || '');
+  return [
+    'nexdare_user', 'nexdare_profile', 'nexdare_myphoto', 'nexdare_myphotohd',
+    'nexdare_bgphoto', 'nexdare_pal', 'nexdare_seenst'
+  ].includes(k) || k.startsWith('nexdare_hidden_') ||
+    k.startsWith('nexdare_dmhidden_') || k.startsWith('nexdare_grphidden_');
+};
+const privateGetItem = (key) => {
+  try {
+    const current = privateSessionStore.getItem(key);
+    if (current !== null) {
+      // Remove any duplicate legacy copy left by an interrupted migration.
+      localStorage.removeItem(key);
+      return current;
+    }
+    // Migrate legacy personal data out of persistent localStorage on first use.
+    const legacy = localStorage.getItem(key);
+    if (legacy !== null) {
+      privateSessionStore.setItem(key, legacy);
+      localStorage.removeItem(key);
+      return legacy;
+    }
+  } catch (e) {}
+  return null;
+};
+const privateSetItem = (key, value) => {
+  try {
+    privateSessionStore.setItem(key, value);
+    localStorage.removeItem(key);
+  } catch (e) {}
+};
+const privateRemoveItem = (key) => {
+  try { privateSessionStore.removeItem(key); } catch (e) {}
+  try { localStorage.removeItem(key); } catch (e) {}
+};
+const clearPrivateCacheKeys = () => {
+  const stores = [privateSessionStore, localStorage];
+  stores.forEach((store) => {
+    try {
+      const keys = [];
+      const length = Number(store.length) || 0;
+      for (let i = 0; i < length; i++) {
+        const key = typeof store.key === 'function' ? store.key(i) : Object.keys(store)[i];
+        if (key && (key.startsWith('nexdare_hidden_') || key.startsWith('nexdare_dmhidden_') || key.startsWith('nexdare_grphidden_'))) keys.push(key);
+      }
+      keys.forEach((key) => store.removeItem(key));
+    } catch (e) {}
+  });
+};
+const migratePrivateCacheAtStartup = () => {
+  try {
+    const keys = [];
+    const length = Number(localStorage.length) || 0;
+    for (let i = 0; i < length; i++) {
+      const key = typeof localStorage.key === 'function' ? localStorage.key(i) : Object.keys(localStorage)[i];
+      if (key && isPrivateCacheKey(key)) keys.push(key);
+    }
+    keys.forEach((key) => privateGetItem(key));
+  } catch (e) {}
+};
+migratePrivateCacheAtStartup();
+
 const authSessionStore = (() => {
   const memory = {};
   try {
@@ -1184,7 +1262,7 @@ export default function App() {
   const [svViews, setSvViews] = useState({});
   const [svViewsFor, setSvViewsFor] = useState('');
   const [strAlive, setStrAlive] = useState(0);
-  const [seenSt, setSeenSt] = useState(() => { try { return JSON.parse(localStorage.getItem('nexdare_seenst')) || {}; } catch (e) { return {}; } });
+  const [seenSt, setSeenSt] = useState(() => { try { return JSON.parse(privateGetItem('nexdare_seenst')) || {}; } catch (e) { return {}; } });
   const [sv, setSv] = useState(null);
   const [stAud, setStAud] = useState('all');
   const [stText, setStText] = useState('');
@@ -1263,32 +1341,32 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const savedUser = localStorage.getItem('nexdare_user');
+      const savedUser = privateGetItem('nexdare_user');
       if (savedUser) {
         const user = JSON.parse(savedUser);
         if (user && user.email && user.uid && authState.refreshToken) {
           setCurrentUser(user); setIsLoggedIn(true);
           setProfile((prev) => ({ ...prev, name: user.name || '', bio: user.bio || '', avatar: user.avatar || '😎', gender: user.gender || prev.gender || '' }));
-        } else localStorage.removeItem('nexdare_user');
+        } else privateRemoveItem('nexdare_user');
       }
-      const p = JSON.parse(localStorage.getItem('nexdare_profile') || '{}');
+      const p = JSON.parse(privateGetItem('nexdare_profile') || '{}');
       if (p.name || p.bio) setProfile((prev) => ({ ...prev, ...p }));
       const s1 = localStorage.getItem('nexdare_sound'); if (s1 !== null) setSoundOn(s1 === '1');
       const n1 = localStorage.getItem('nexdare_notif'); if (n1 !== null) setNotifOn(n1 === '1');
       setSkin(localStorage.getItem('nexdare_skin') || '');
-      setMyPhoto(localStorage.getItem('nexdare_myphoto') || '');
-      setMyPhotoHd(localStorage.getItem('nexdare_myphotohd') || '');
-      setBgPhoto(localStorage.getItem('nexdare_bgphoto') || '');
+      setMyPhoto(privateGetItem('nexdare_myphoto') || '');
+      setMyPhotoHd(privateGetItem('nexdare_myphotohd') || '');
+      setBgPhoto(privateGetItem('nexdare_bgphoto') || '');
     } catch (e) {}
   }, []);
 
   const saveProfile = (p) => {
     setProfile(p);
-    try { localStorage.setItem('nexdare_profile', JSON.stringify(p)); } catch (e) {}
+    try { privateSetItem('nexdare_profile', JSON.stringify(p)); } catch (e) {}
     if (currentUser && currentUser.uid) {
       const updated = { ...currentUser, ...p };
       setCurrentUser(updated);
-      localStorage.setItem('nexdare_user', JSON.stringify(updated));
+      privateSetItem('nexdare_user', JSON.stringify(updated));
       set(ref(db, 'users/' + currentUser.uid), updated).catch(() => {});
       if (currentUser.username) {
         update(ref(db, 'profiles/' + currentUser.uid), {
@@ -1311,11 +1389,11 @@ export default function App() {
           const thumb = await resizeDataUrl(du, 240, 0.82);
           const hd = await resizeDataUrl(du, 1080, 0.86);
           setMyPhoto(thumb); setMyPhotoHd(hd);
-          try { localStorage.setItem('nexdare_myphoto', thumb); localStorage.setItem('nexdare_myphotohd', hd); } catch (e) {}
+          try { privateSetItem('nexdare_myphoto', thumb); privateSetItem('nexdare_myphotohd', hd); } catch (e) {}
           if (currentUser && currentUser.username) update(ref(db, 'profiles/' + currentUser.uid), { photo: thumb, photoHd: hd }).catch(() => {});
         } else {
           const small = await resizeDataUrl(du, 800, 0.5);
-          setBgPhoto(small); localStorage.setItem('nexdare_bgphoto', small);
+          setBgPhoto(small); privateSetItem('nexdare_bgphoto', small);
         }
         setNotice('Photo laga di 💕');
       } catch (e) { setError('Photo nahi lagi: ' + e.message); }
@@ -1372,7 +1450,7 @@ export default function App() {
       if (ps.exists() && ps.val().username) userData.username = ps.val().username;
       if (reactivated) await update(ref(db, 'profiles/' + uid), { deactivated: false, deleteAt: null });
     } catch (e) {}
-    localStorage.setItem('nexdare_user', JSON.stringify(userData));
+    privateSetItem('nexdare_user', JSON.stringify(userData));
     setCurrentUser(userData);
     setProfile((prev) => ({ ...prev, name: userData.name || '', bio: userData.bio || '', avatar: userData.avatar || '😎', gender: userData.gender || prev.gender || '' }));
     setIsLoggedIn(true); setAuthStep('form');
@@ -1450,7 +1528,7 @@ export default function App() {
     clearAuthTokens();
     setCloudFriends({}); setFriendReqs({}); setDmFriend(null);
     try { if (window.firebase && window.firebase.apps.length) window.firebase.auth().signOut(); } catch (e) {}
-    localStorage.removeItem('nexdare_user');
+    privateRemoveItem('nexdare_user');
     setCurrentUser(null); setIsLoggedIn(false); setEmail(''); setPassword('');
     setAuthMode('login'); setAuthStep('form'); setNotice('Logged out');
   };
@@ -1473,7 +1551,7 @@ export default function App() {
       await set(ref(db, 'usernames/' + uname), currentUser.uid);
       await set(ref(db, 'profiles/' + currentUser.uid), { username: uname, name: currentUser.name || uname, avatar: currentUser.avatar || '😎', bio: currentUser.bio || '', photo: myPhoto || '' });
       const updated = { ...currentUser, username: uname, name: currentUser.name || uname };
-      localStorage.setItem('nexdare_user', JSON.stringify(updated));
+      privateSetItem('nexdare_user', JSON.stringify(updated));
       setCurrentUser(updated); setUsernameInput('');
       setNotice('Username set ho gaya: @' + uname + ' 🎉');
     } catch (e) { setError('Username save nahi hua: ' + e.message); }
@@ -1516,7 +1594,7 @@ export default function App() {
     setDmImgs({}); dmImgLoading.current = {}; setDmBusy(false); setEditing(null); seenW.current = 0;
     lastDm.current = ''; setDmSel(null); setDmText(''); setError(''); setNotice('');
     let h = [];
-    try { h = JSON.parse(localStorage.getItem('nexdare_dmhidden_' + f.chatId)) || []; } catch (e) {}
+    try { h = JSON.parse(privateGetItem('nexdare_dmhidden_' + f.chatId)) || []; } catch (e) {}
     setDmHidden(h);
     if (subtle) loadIdentity().then(setIdent).catch(() => {});
     setScreen('dm');
@@ -1615,7 +1693,7 @@ export default function App() {
   const dmDeleteForMe = () => {
     if (!dmSel || !dmFriend) return;
     const h = [...dmHidden, dmSel.key]; setDmHidden(h);
-    try { localStorage.setItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
+    try { privateSetItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
     setDmSel(null);
   };
   const dmDeleteForAll = async () => {
@@ -1630,7 +1708,7 @@ export default function App() {
     if (!dmFriend) return;
     const h = Array.from(new Set([...dmHidden, ...Object.keys(dmRaw)]));
     setDmHidden(h);
-    try { localStorage.setItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
+    try { privateSetItem('nexdare_dmhidden_' + dmFriend.chatId, JSON.stringify(h)); } catch (e) {}
     setDmMenu(''); setDmSel(null);
     setNotice('Delete ho gaya 🧹');
   };
@@ -1644,7 +1722,7 @@ export default function App() {
       for (const m of dmPlain) { if (m.file && m.from === currentUser.uid) await remove(ref(db, 'dm/' + cid + '/files/' + m.file.id)).catch(() => {}); }
       const h = Array.from(new Set([...dmHidden, ...Object.keys(dmRaw)]));
       setDmHidden(h);
-      try { localStorage.setItem('nexdare_dmhidden_' + cid, JSON.stringify(h)); } catch (e) {}
+      try { privateSetItem('nexdare_dmhidden_' + cid, JSON.stringify(h)); } catch (e) {}
       setNotice('Delete ho gaya 🧹');
     } catch (e) { setError('Clear nahi hua: ' + e.message); }
   };
@@ -1743,7 +1821,7 @@ export default function App() {
         if (!keys[id.sid]) await update(ref(db, 'chats/' + chatCode + '/keys'), { [id.sid]: id.pub });
         await update(ref(db, 'chats/' + chatCode + '/names'), { [id.sid]: profile.name || (currentUser && currentUser.username) || 'Partner' }).catch(() => {});
         let h = [];
-        try { h = JSON.parse(localStorage.getItem('nexdare_hidden_' + chatCode)) || []; } catch (e) {}
+        try { h = JSON.parse(privateGetItem('nexdare_hidden_' + chatCode)) || []; } catch (e) {}
         setHidden(h);
       } catch (e) { setError('Encryption setup nahi hua: ' + e.message); }
     })();
@@ -2179,7 +2257,7 @@ export default function App() {
   const deleteForMe = () => {
     if (!selMsg) return;
     const h = [...hidden, selMsg.key]; setHidden(h);
-    try { localStorage.setItem('nexdare_hidden_' + chatCode, JSON.stringify(h)); } catch (e) {}
+    try { privateSetItem('nexdare_hidden_' + chatCode, JSON.stringify(h)); } catch (e) {}
     setSelMsg(null);
   };
   const deleteForAll = async () => {
@@ -2208,9 +2286,10 @@ export default function App() {
 
   const clearAllData = () => {
     try {
-      ['nexdare_id_v1', 'nexdare_profile', 'nexdare_sound', 'nexdare_notif', 'nexdare_user', 'nexdare_skin', 'nexdare_myphoto', 'nexdare_myphotohd', 'nexdare_bgphoto'].forEach((k) => localStorage.removeItem(k));
+      ['nexdare_id_v1', 'nexdare_sound', 'nexdare_notif', 'nexdare_skin'].forEach((k) => localStorage.removeItem(k));
+      ['nexdare_profile', 'nexdare_user', 'nexdare_myphoto', 'nexdare_myphotohd', 'nexdare_bgphoto', 'nexdare_pal', 'nexdare_seenst'].forEach(privateRemoveItem);
       clearAuthTokens();
-      Object.keys(localStorage).forEach((k) => { if (k.startsWith('nexdare_hidden_') || k.startsWith('nexdare_dmhidden_') || k.startsWith('nexdare_grphidden_')) localStorage.removeItem(k); });
+      clearPrivateCacheKeys();
       sessionIdentity = null;
       identityDbDelete('primary').catch(() => {});
       setProfile({ name: '', bio: '', avatar: '😎', gender: '' });
@@ -2274,7 +2353,7 @@ export default function App() {
     setGrpRaw({}); setGrpPlain([]); setGrpMembers({}); setGrpMeta(undefined); setGrpSel(null); setGrpEditing(null);
     setGrpText(''); setGrpInfo(false); setGrpConfirm(''); lastGrp.current = ''; grpCount.current = -1;
     let h = [];
-    try { h = JSON.parse(localStorage.getItem('nexdare_grphidden_' + gid)) || []; } catch (e) {}
+    try { h = JSON.parse(privateGetItem('nexdare_grphidden_' + gid)) || []; } catch (e) {}
     setGrpHidden(h);
     setGrpKey(aes);
     setGrp({ gid, code, name: nameHint || 'Group' });
@@ -2366,7 +2445,7 @@ export default function App() {
   const grpDeleteForMe = () => {
     if (!grpSel || !grp) return;
     const h = [...grpHidden, grpSel.key]; setGrpHidden(h);
-    try { localStorage.setItem('nexdare_grphidden_' + grp.gid, JSON.stringify(h)); } catch (e) {}
+    try { privateSetItem('nexdare_grphidden_' + grp.gid, JSON.stringify(h)); } catch (e) {}
     setGrpSel(null);
   };
   const grpDeleteForAll = async () => {
@@ -2439,7 +2518,7 @@ export default function App() {
   };
   const choosePal = (f) => {
     setPal(f); setPalPicking(false);
-    try { localStorage.setItem('nexdare_pal', f.uid); } catch (e) {}
+    try { privateSetItem('nexdare_pal', f.uid); } catch (e) {}
   };
   const palName = pal ? (pal.name || pal.username) : '';
   const cidPath = (p) => 'couples/' + pal.chatId + '/' + p;
@@ -2451,7 +2530,7 @@ export default function App() {
     const keys = Object.keys(cloudFriends);
     if (!keys.length) return;
     let saved = null;
-    try { saved = localStorage.getItem('nexdare_pal'); } catch (e) {}
+    try { saved = privateGetItem('nexdare_pal'); } catch (e) {}
     if (!pal && saved && cloudFriends[saved]) setPal(cloudFriends[saved]);
     else if (pal && !cloudFriends[pal.uid]) setPal(null);
   }, [JSON.stringify(Object.keys(cloudFriends))]);
@@ -3229,7 +3308,7 @@ export default function App() {
     setSeenSt((p) => {
       if (p[st.sid]) return p;
       const n = { ...p, [st.sid]: 1 };
-      try { localStorage.setItem('nexdare_seenst', JSON.stringify(n)); } catch (e) {}
+      try { privateSetItem('nexdare_seenst', JSON.stringify(n)); } catch (e) {}
       return n;
     });
     if (currentUser && st.uid !== currentUser.uid) set(ref(db, 'stories/' + st.uid + '/' + st.bucket + '/' + st.sid + '/views/' + currentUser.uid), Date.now()).catch(() => {});
@@ -4194,7 +4273,7 @@ export default function App() {
             <View style={s.themeGrid}>
               {Object.keys(skins).map((k) => (
                 <TouchableOpacity key={k} activeOpacity={0.8} style={[s.themeCard, skin === k ? { borderColor: skins[k].accent, borderWidth: 3 } : null]}
-                  onPress={() => { setSkin(k); setBgPhoto(''); try { localStorage.setItem('nexdare_skin', k); localStorage.removeItem('nexdare_bgphoto'); } catch (e) {} playSound('click', soundOn); }}>
+                  onPress={() => { setSkin(k); setBgPhoto(''); try { localStorage.setItem('nexdare_skin', k); privateRemoveItem('nexdare_bgphoto'); } catch (e) {} playSound('click', soundOn); }}>
                   <RNImage pointerEvents="none" source={{ uri: wallUri(skins[k].wall) }} style={s.wallImg} resizeMode="cover" />
                   <View style={[s.themeDot, { backgroundColor: skins[k].accent }]} />
                   <View style={s.themeLabel}><Text style={s.themeName}>{(skin === k ? '✅ ' : '') + skins[k].name}</Text></View>
@@ -4217,7 +4296,7 @@ export default function App() {
             <Text style={s.sm}>Background photo (poori app me)</Text>
             <View style={s.miniRow}>
               <Mini label="🖼️ Background lagao" onPress={() => pickPhoto('bg')} />
-              {!!bgPhoto && <Mini label="Hatao" onPress={() => { setBgPhoto(''); localStorage.removeItem('nexdare_bgphoto'); }} />}
+              {!!bgPhoto && <Mini label="Hatao" onPress={() => { setBgPhoto(''); privateRemoveItem('nexdare_bgphoto'); }} />}
             </View>
             <Nav label={t('back')} onPress={() => setScreen('settings')} />
           </ScrollView>
