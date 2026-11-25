@@ -15,13 +15,32 @@ if (typeof localStorage === 'undefined') {
 
 const FIREBASE_API_KEY = 'AIzaSyCOon-MP5tYqOgBDOjkodb_4vKHMVyBEPk';
 
+const authSessionStore = (() => {
+  const memory = {};
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) return window.sessionStorage;
+  } catch (e) {}
+  return {
+    getItem: (k) => Object.prototype.hasOwnProperty.call(memory, k) ? memory[k] : null,
+    setItem: (k, v) => { memory[k] = String(v); },
+    removeItem: (k) => { delete memory[k]; },
+  };
+})();
 let authState = { idToken: null, refreshToken: null, exp: 0 };
 try {
-  const savedAuth = JSON.parse(localStorage.getItem('nexdare_auth'));
+  let savedAuth = JSON.parse(authSessionStore.getItem('nexdare_auth'));
+  if (!savedAuth || !savedAuth.refreshToken) {
+    // One-time migration from the old persistent browser storage.
+    savedAuth = JSON.parse(localStorage.getItem('nexdare_auth'));
+    if (savedAuth && savedAuth.refreshToken) {
+      authSessionStore.setItem('nexdare_auth', JSON.stringify(savedAuth));
+      localStorage.removeItem('nexdare_auth');
+    }
+  }
   if (savedAuth && savedAuth.refreshToken) authState = savedAuth;
 } catch (e) {}
 const saveAuthState = () => {
-  try { localStorage.setItem('nexdare_auth', JSON.stringify(authState)); } catch (e) {}
+  try { authSessionStore.setItem('nexdare_auth', JSON.stringify(authState)); } catch (e) {}
 };
 const setAuthTokens = (tk) => {
   authState = {
@@ -33,7 +52,7 @@ const setAuthTokens = (tk) => {
 };
 const clearAuthTokens = () => {
   authState = { idToken: null, refreshToken: null, exp: 0 };
-  try { localStorage.removeItem('nexdare_auth'); } catch (e) {}
+  try { authSessionStore.removeItem('nexdare_auth'); localStorage.removeItem('nexdare_auth'); } catch (e) {}
 };
 let refreshing = null;
 const refreshIdToken = () => {
@@ -191,23 +210,94 @@ const cleanPub = (k) => ({ kty: k.kty, crv: k.crv, x: k.x, y: k.y });
 const canon = (k) => JSON.stringify({ crv: k.crv, kty: k.kty, x: k.x, y: k.y });
 
 let sessionIdentity = null;
+let identityDbPromise = null;
+const openIdentityDb = () => {
+  if (identityDbPromise) return identityDbPromise;
+  identityDbPromise = new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB unavailable')); return; }
+    const req = indexedDB.open('nexdare-secure-storage', 1);
+    req.onupgradeneeded = () => {
+      const dbi = req.result;
+      if (!dbi.objectStoreNames.contains('identity')) dbi.createObjectStore('identity');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('IndexedDB open failed'));
+  });
+  return identityDbPromise;
+};
+const identityDbGet = async (key) => {
+  const dbi = await openIdentityDb();
+  return new Promise((resolve, reject) => {
+    const tx = dbi.transaction('identity', 'readonly');
+    const req = tx.objectStore('identity').get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error || new Error('Identity read failed'));
+  });
+};
+const identityDbPut = async (key, value) => {
+  const dbi = await openIdentityDb();
+  return new Promise((resolve, reject) => {
+    const tx = dbi.transaction('identity', 'readwrite');
+    tx.objectStore('identity').put(value, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error || new Error('Identity save failed'));
+    tx.onabort = () => reject(tx.error || new Error('Identity save aborted'));
+  });
+};
+const identityDbDelete = async (key) => {
+  const dbi = await openIdentityDb();
+  return new Promise((resolve, reject) => {
+    const tx = dbi.transaction('identity', 'readwrite');
+    tx.objectStore('identity').delete(key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error || new Error('Identity delete failed'));
+    tx.onabort = () => reject(tx.error || new Error('Identity delete aborted'));
+  });
+};
 const loadIdentity = async () => {
   if (sessionIdentity) return sessionIdentity;
-  let stored = null;
-  try { stored = JSON.parse(localStorage.getItem('nexdare_id_v1')); } catch (e) {}
-  if (stored && stored.sid && stored.pub && stored.priv) {
-    try {
-      const priv = await subtle.importKey('jwk', stored.priv, ECDH, false, ['deriveBits']);
-      sessionIdentity = { sid: stored.sid, pub: stored.pub, priv };
+
+  // Prefer the non-extractable CryptoKey stored in IndexedDB.
+  try {
+    const stored = await identityDbGet('primary');
+    if (stored && stored.sid && stored.pub && stored.priv) {
+      sessionIdentity = { sid: stored.sid, pub: stored.pub, priv: stored.priv };
       return sessionIdentity;
-    } catch (e) {}
+    }
+  } catch (e) {}
+
+  // Preserve the existing identity during migration so encrypted chats remain readable.
+  let legacy = null;
+  try { legacy = JSON.parse(localStorage.getItem('nexdare_id_v1')); } catch (e) {}
+  if (legacy && legacy.sid && legacy.pub && legacy.priv) {
+    try {
+      const priv = await subtle.importKey('jwk', legacy.priv, ECDH, false, ['deriveBits']);
+      const migrated = { sid: legacy.sid, pub: legacy.pub, priv };
+      await identityDbPut('primary', migrated);
+      // Remove the old exportable JWK only after IndexedDB confirms persistence.
+      try { localStorage.removeItem('nexdare_id_v1'); } catch (e2) {}
+      sessionIdentity = migrated;
+      return sessionIdentity;
+    } catch (e) {
+      // IndexedDB unavailable: keep the legacy copy to avoid losing identity
+      // across reloads, and use the imported non-extractable key for this session.
+      try {
+        const priv = await subtle.importKey('jwk', legacy.priv, ECDH, false, ['deriveBits']);
+        sessionIdentity = { sid: legacy.sid, pub: legacy.pub, priv };
+        return sessionIdentity;
+      } catch (e2) {}
+    }
   }
+
   const kp = await subtle.generateKey(ECDH, true, ['deriveBits']);
   const pub = cleanPub(await subtle.exportKey('jwk', kp.publicKey));
   const privJwk = await subtle.exportKey('jwk', kp.privateKey);
-  const sid = randomId();
-  try { localStorage.setItem('nexdare_id_v1', JSON.stringify({ sid, pub, priv: privJwk })); } catch (e) {}
-  sessionIdentity = { sid, pub, priv: kp.privateKey };
+  const priv = await subtle.importKey('jwk', privJwk, ECDH, false, ['deriveBits']);
+  const identity = { sid: randomId(), pub, priv };
+  try { await identityDbPut('primary', identity); } catch (e) {
+    // Safe memory-only fallback; do not persist an extractable private JWK.
+  }
+  sessionIdentity = identity;
   return sessionIdentity;
 };
 
@@ -1262,9 +1352,15 @@ export default function App() {
       const snap = await get(ref(db, 'users/' + uid));
       if (snap.exists()) userData = { ...userData, ...snap.val(), uid, email: mail, lastLogin: Date.now() };
       if (userData.deletePending && userData.deleteAt && Date.now() >= userData.deleteAt) {
-        try { await purgeAccount(uid); } catch (e2) {}
-        clearAuthTokens(); setAuthLoading(false); setError('');
-        setNotice('Is account ka 15 din ka delete time poora ho gaya tha, isliye account delete ho gaya.');
+        try {
+          await purgeAccount(uid);
+          clearAuthTokens();
+          setAuthLoading(false); setError('');
+          setNotice('Is account ka 15 din ka delete time poora ho gaya tha, isliye account delete ho gaya.');
+        } catch (purgeError) {
+          setAuthLoading(false);
+          setError('Account deletion cleanup poora nahi ho paya: ' + purgeError.message + '. Dobara login karke deletion retry karo.');
+        }
         return;
       }
       if (userData.deletePending) { cancelledDelete = true; userData.deletePending = false; delete userData.deleteAt; reactivated = true; }
@@ -2116,6 +2212,7 @@ export default function App() {
       clearAuthTokens();
       Object.keys(localStorage).forEach((k) => { if (k.startsWith('nexdare_hidden_') || k.startsWith('nexdare_dmhidden_') || k.startsWith('nexdare_grphidden_')) localStorage.removeItem(k); });
       sessionIdentity = null;
+      identityDbDelete('primary').catch(() => {});
       setProfile({ name: '', bio: '', avatar: '😎', gender: '' });
       setSkin(''); setMyPhoto(''); setMyPhotoHd(''); setBgPhoto('');
       setSoundOn(true); setNotifOn(false); setIsLoggedIn(false); setCurrentUser(null);
@@ -3285,50 +3382,83 @@ export default function App() {
     } catch (e) { setError('Block nahi hua: ' + e.message); }
   };
   const unblockUser = async (uid) => { try { await remove(ref(db, 'blocks/' + currentUser.uid + '/' + uid)); } catch (e) { setError('Error: ' + e.message); } };
+  const cleanupAccountData = async (uid, username) => {
+    // Keep a copy of the user record so a failed Auth deletion can restore
+    // the deletion marker and allow a safe retry on the next login.
+    const userRecord = await call('GET', 'users/' + uid);
+    // Remove only records owned by this uid. Shared conversations and
+    // other users' indexes are intentionally left untouched.
+    const memberships = await call('GET', 'userGroups/' + uid);
+    if (memberships && typeof memberships === 'object') {
+      for (const gid of Object.keys(memberships)) {
+        await remove(ref(db, 'groups/' + gid + '/members/' + uid));
+      }
+    }
+
+    await remove(ref(db, 'friends/' + uid));
+    const ownedPaths = [
+      'friendReqs/' + uid,
+      'userGroups/' + uid,
+      'blocks/' + uid,
+      'closeFriends/' + uid,
+      'stories/' + uid,
+      'profiles/' + uid,
+      'presence/' + uid,
+    ];
+    for (const p of ownedPaths) await remove(ref(db, p));
+    if (username) await remove(ref(db, 'usernames/' + username));
+    // Remove the user record last; it is the retry marker if Auth deletion fails.
+    await remove(ref(db, 'users/' + uid));
+    return userRecord;
+  };
+
   const deleteAccount = async () => {
     if (!currentUser) return;
     setError('');
     try {
       const uid = currentUser.uid;
+      const username = currentUser.username || '';
       const tok = await getToken();
+      if (!tok) throw new Error('Login session expire ho gayi. Dobara login karke try karo.');
+
+      // Cleanup first. If a database write fails, Auth stays active so the
+      // user can retry; never report a successful deletion after partial cleanup.
+      const userRecordBackup = await cleanupAccountData(uid, username);
+
       const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:delete?key=' + FIREBASE_API_KEY, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d.error && d.error.message) || 'delete failed'); }
-      for (const k of Object.keys(cloudFriends)) {
-        const f = cloudFriends[k];
-        await remove(ref(db, 'friends/' + k + '/' + uid)).catch(() => {});
-        await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
-        await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        if (userRecordBackup) await set(ref(db, 'users/' + uid), userRecordBackup);
+        throw new Error((d.error && d.error.message) || 'Firebase Auth account delete failed');
       }
-      const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
-      if (currentUser.username) paths.push('usernames/' + currentUser.username);
-      for (const p of paths) await remove(ref(db, p)).catch(() => {});
-      clearAllData(); logout(); setDelConfirm(false); setScreen('home'); setAcctMode(null);
-      setNotice('Account delete ho gaya.');
+
+      clearAllData();
+      logout();
+      setDelConfirm(false); setScreen('home'); setAcctMode(null);
+      setNotice('Account aur uska user-owned data delete ho gaya.');
     } catch (e) {
-      setError('Account delete nahi hua: ' + e.message + '. Ek baar logout karke dobara login karo, phir try karo.');
+      setError('Account delete poora nahi hua: ' + e.message + '. Cleanup fail hua ho to account login rahega; dobara try kar sakte ho.');
     }
   };
+
   const purgeAccount = async (uid) => {
-    let uname = '';
-    try { uname = (await call('GET', 'profiles/' + uid + '/username')) || ''; } catch (e) {}
-    let friends = {};
-    try { friends = (await call('GET', 'friends/' + uid)) || {}; } catch (e) {}
+    const username = await call('GET', 'profiles/' + uid + '/username');
     const tok = await getToken();
+    if (!tok) throw new Error('Login session expire ho gayi; deletion retry ke liye dobara login karo.');
+
+    const userRecordBackup = await cleanupAccountData(uid, username || '');
     const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:delete?key=' + FIREBASE_API_KEY, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: tok }),
     });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d.error && d.error.message) || 'delete failed'); }
-    for (const k of Object.keys(friends)) {
-      const f = friends[k];
-      await remove(ref(db, 'friends/' + k + '/' + uid)).catch(() => {});
-      await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
-      if (f && f.chatId) await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      if (userRecordBackup) await set(ref(db, 'users/' + uid), userRecordBackup);
+      throw new Error((d.error && d.error.message) || 'Firebase Auth account delete failed');
     }
-    const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
-    if (uname) paths.push('usernames/' + uname);
-    for (const p2 of paths) await remove(ref(db, p2)).catch(() => {});
   };
   // ===== GAMES + COUPLE SPACE + SAFETY END =====
 
