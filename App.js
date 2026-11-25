@@ -4706,7 +4706,7 @@ export default function App() {
             {setGroup('PRIVACY & SAFETY', [
               { icon: '🟢', title: 'Last seen / online dikhao', sub: 'Band karoge to doosron ka bhi nahi dikhega', right: <Switch value={showSeen} onValueChange={toggleSeen} /> },
               ...Object.keys(blocks).map((k) => ({ key: 'blk' + k, icon: '🚫', title: '@' + blocks[k].username, sub: 'Blocked', right: <Mini label="Unblock" onPress={() => unblockUser(k)} /> })),
-              { icon: '📄', title: 'Privacy Policy', onPress: () => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e') },
+              { icon: '📄', title: 'Privacy Policy', onPress: () => Linking.openURL('https://nexdare-web.vercel.app/privacy-policy.html') },
             ])}
             {setGroup('SHARE', [
               { icon: '📤', title: 'App share karo', sub: 'Dost ko Nexdare bhejo', onPress: shareApp },
