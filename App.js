@@ -1612,7 +1612,7 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const v = await call('GET', 'chats/img-' + roomCode);
+        const v = await call('GET', 'rooms/' + roomCode + '/image');
         if (!v || v.rid !== replyMeta.rid) return;
         const data = await decryptText(rshared.aes, v);
         if (!cancelled && data) setReplyPic(data);
@@ -1846,19 +1846,38 @@ export default function App() {
 
   const createRoom = async () => {
     try {
-      const code = await freshCode('rooms/', () => String(Math.floor(1000 + Math.random() * 9000)));
-      await set(ref(db, 'rooms/' + code), { stage: 'lobby', p2: false, scores: { P1: 0, P2: 0 } });
+      if (!currentUser || !currentUser.uid || !(await getToken())) {
+        setError('Pehle login karo.');
+        return;
+      }
+      const code = await freshCode('rooms/', () => String(Math.floor(100000 + Math.random() * 900000)));
+      await set(ref(db, 'rooms/' + code), {
+        stage: 'lobby',
+        p2: false,
+        players: { P1: currentUser.uid },
+        scores: { P1: 0, P2: 0 },
+      });
       resetReply(); setError(''); setRole('P1'); setRoom(null); setRoomCode(code); setScreen('room');
       playSound('success', soundOn);
     } catch (e) { setError('Error: ' + e.message); }
   };
   const joinRoom = async () => {
     try {
+      if (!currentUser || !currentUser.uid || !(await getToken())) {
+        setError('Pehle login karo.');
+        return;
+      }
       const code = joinCode.trim();
+      if (!/^\d{6}$/.test(code)) {
+        setError('6 digit room code dalo.');
+        return;
+      }
       const snap = await get(ref(db, 'rooms/' + code));
       if (!snap.exists()) { setError(t('roomNotFound')); return; }
       if (snap.val().p2) { setError(t('roomFull')); return; }
-      await update(ref(db, 'rooms/' + code), { p2: true, stage: 'flip' });
+      if (!snap.val().players || !snap.val().players.P1) { setError(t('roomNotFound')); return; }
+      if (snap.val().players.P1 === currentUser.uid) { setError('Apne room mein khud join nahi kar sakte.'); return; }
+      await update(ref(db, 'rooms/' + code), { p2: true, stage: 'flip', 'players/P2': currentUser.uid });
       resetReply(); setError(''); setRole('P2'); setRoom(null); setRoomCode(code); setScreen('room');
       playSound('success', soundOn);
     } catch (e) { setError('Error: ' + e.message); }
@@ -1909,7 +1928,7 @@ export default function App() {
   const judge = (delta) => {
     const answerer = room.asker === 'P1' ? 'P2' : 'P1';
     update(roomRef(), { scores: { ...room.scores, [answerer]: room.scores[answerer] + delta }, question: null, reply: null, asker: answerer });
-    remove(ref(db, 'chats/img-' + roomCode)).catch(() => {});
+    remove(ref(db, 'rooms/' + roomCode + '/image')).catch(() => {});
     playSound(delta > 0 ? 'success' : 'error', soundOn);
   };
   const endGame = () => update(roomRef(), { stage: 'end' });
@@ -2008,7 +2027,7 @@ export default function App() {
       const encT = await encryptText(rshared.aes, JSON.stringify({ text }));
       if (replyImg) {
         const encI = await encryptText(rshared.aes, replyImg);
-        await set(ref(db, 'chats/img-' + roomCode), { rid, iv: encI.iv, ct: encI.ct });
+        await set(ref(db, 'rooms/' + roomCode + '/image'), { rid, iv: encI.iv, ct: encI.ct });
       }
       await update(roomRef(), { reply: { iv: encT.iv, ct: encT.ct, from: role, rid, img: !!replyImg, mt: replyImg ? String(replyImg).slice(5, String(replyImg).indexOf('/')) : '' } });
       setReplyText(''); setReplyImg(null); setNotice('');
@@ -3959,7 +3978,7 @@ export default function App() {
         </>)}
 
         {screen === 'join' && (<>
-          <TextInput style={s.i} placeholder="Room code" placeholderTextColor={PH} keyboardType="number-pad" value={joinCode} onChangeText={setJoinCode} />
+          <TextInput style={s.i} placeholder="6 digit room code" placeholderTextColor={PH} keyboardType="number-pad" maxLength={6} value={joinCode} onChangeText={setJoinCode} />
           <Btn label={t('join')} onPress={joinRoom} />
           <Nav label={t('back')} onPress={leave} />
         </>)}
