@@ -211,13 +211,20 @@ const refreshIdToken = async () => {
 };
 const getToken = async () => {
   await loadAuthState();
-  if (!authState.refreshToken && !authState.idToken) return null;
-  if (!authState.idToken || Date.now() > authState.exp - 60000) {
-    try { await refreshIdToken(); }
-    catch (e) {
-      // Never treat an expired ID token as an active login when refresh fails.
-      if (!authState.idToken || !authState.exp || Date.now() >= authState.exp) return null;
+  if (!authState.refreshToken && !authState.idToken) {
+    throw new Error('Firebase session missing. Please sign in again.');
+  }
+  if (!authState.idToken || !authState.exp || Date.now() > authState.exp - 60000) {
+    try {
+      await refreshIdToken();
+    } catch (e) {
+      // A still-valid ID token may be used during a temporary refresh outage.
+      if (authState.idToken && authState.exp && Date.now() < authState.exp) return authState.idToken;
+      throw new Error('Firebase session refresh failed: ' + ((e && e.message) || 'Please sign in again.'));
     }
+  }
+  if (!authState.idToken || !authState.exp || Date.now() >= authState.exp) {
+    throw new Error('Firebase session expired. Please sign in again.');
   }
   return authState.idToken;
 };
@@ -230,15 +237,24 @@ const pollAll = () => listeners.forEach((f) => f());
 
 const call = async (method, path, body, query) => {
   const tok = await getToken();
-  const parts = [];
-  if (tok) parts.push('auth=' + tok);
+  if (!tok) throw new Error('Firebase authentication token unavailable. Please sign in again.');
+  const parts = ['auth=' + encodeURIComponent(tok)];
   if (query) parts.push(query);
-  const res = await fetch(DB_URL + '/' + path + '.json' + (parts.length ? '?' + parts.join('&') : ''), {
+  const res = await fetch(DB_URL + '/' + path + '.json?' + parts.join('&'), {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('Database error ' + res.status);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const payload = await res.json();
+      detail = payload && payload.error ? (typeof payload.error === 'string' ? payload.error : JSON.stringify(payload.error)) : JSON.stringify(payload);
+    } catch (e) {
+      try { detail = await res.text(); } catch (e2) {}
+    }
+    throw new Error('Database error ' + res.status + (detail ? ': ' + detail : '') + ' [' + method + ' ' + path + ']');
+  }
   return res.json();
 };
 const set = async (r, data) => { await call('PUT', r.path, data); pollAll(); };
@@ -1546,7 +1562,11 @@ export default function App() {
       if (userData.deletePending) { cancelledDelete = true; userData.deletePending = false; delete userData.deleteAt; reactivated = true; }
       if (userData.deactivated) { userData.deactivated = false; reactivated = true; }
       await set(ref(db, 'users/' + uid), userData);
-    } catch (e) {}
+    } catch (e) {
+      // Do not mark a user as logged in when the initial authenticated
+      // database read/write failed; surface the real Firebase error.
+      throw e;
+    }
     try {
       const ps = await get(ref(db, 'profiles/' + uid));
       if (ps.exists() && ps.val().username) userData.username = ps.val().username;
