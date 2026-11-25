@@ -104,36 +104,89 @@ const authSessionStore = (() => {
     removeItem: (k) => { delete memory[k]; },
   };
 })();
-let authState = { idToken: null, refreshToken: null, exp: 0 };
-try {
-  let savedAuth = JSON.parse(authSessionStore.getItem('nexdare_auth'));
-  if (!savedAuth || !savedAuth.refreshToken) {
-    // One-time migration from the old persistent browser storage.
-    savedAuth = JSON.parse(localStorage.getItem('nexdare_auth'));
-    if (savedAuth && savedAuth.refreshToken) {
-      authSessionStore.setItem('nexdare_auth', JSON.stringify(savedAuth));
-      localStorage.removeItem('nexdare_auth');
+let authState = { idToken: null, refreshToken: null, exp: 0, uid: '', email: '' };
+let authHydrated = false;
+let authHydrating = null;
+const loadAuthState = async () => {
+  if (authHydrated) return authState;
+  if (authHydrating) return authHydrating;
+  authHydrating = (async () => {
+    let savedAuth = null;
+    // Persistent login credentials live in IndexedDB, not localStorage.
+    try { savedAuth = await identityDbGet('auth'); } catch (e) {}
+    if (savedAuth && savedAuth.refreshToken && (!savedAuth.uid || !savedAuth.email)) {
+      try {
+        const cachedUser = JSON.parse(privateGetItem('nexdare_user') || 'null');
+        if (cachedUser && cachedUser.uid) {
+          savedAuth.uid = savedAuth.uid || cachedUser.uid;
+          savedAuth.email = savedAuth.email || cachedUser.email || '';
+          await identityDbPut('auth', savedAuth);
+        }
+      } catch (e) {}
     }
-  }
-  if (savedAuth && savedAuth.refreshToken) authState = savedAuth;
-} catch (e) {}
-const saveAuthState = () => {
-  try { authSessionStore.setItem('nexdare_auth', JSON.stringify(authState)); } catch (e) {}
+    if (!savedAuth || !savedAuth.refreshToken) {
+      // Migrate the previous session-only token once. Keep the legacy copy
+      // until IndexedDB confirms the write, so a failed migration cannot log out the user.
+      try { savedAuth = JSON.parse(authSessionStore.getItem('nexdare_auth')); } catch (e) { savedAuth = null; }
+      if (!savedAuth || !savedAuth.refreshToken) {
+        try { savedAuth = JSON.parse(localStorage.getItem('nexdare_auth')); } catch (e) { savedAuth = null; }
+      }
+      if (savedAuth && savedAuth.refreshToken) {
+        try {
+          const cachedUser = JSON.parse(privateGetItem('nexdare_user') || 'null');
+          if (cachedUser && cachedUser.uid) {
+            savedAuth.uid = cachedUser.uid;
+            savedAuth.email = cachedUser.email || '';
+          }
+        } catch (e) {}
+        try {
+          await identityDbPut('auth', savedAuth);
+          try { authSessionStore.removeItem('nexdare_auth'); localStorage.removeItem('nexdare_auth'); } catch (e) {}
+        } catch (e) {
+          // If IndexedDB is unavailable, retain only the existing session copy.
+          try { authSessionStore.setItem('nexdare_auth', JSON.stringify(savedAuth)); } catch (e2) {}
+        }
+      }
+    }
+    if (savedAuth && savedAuth.refreshToken) authState = savedAuth;
+    authHydrated = true;
+    return authState;
+  })();
+  try { return await authHydrating; }
+  finally { authHydrating = null; }
 };
-const setAuthTokens = (tk) => {
+const saveAuthState = async () => {
+  try {
+    await identityDbPut('auth', authState);
+    try { authSessionStore.removeItem('nexdare_auth'); localStorage.removeItem('nexdare_auth'); } catch (e) {}
+    return true;
+  } catch (e) {
+    // Session-only fallback: never downgrade to persistent localStorage.
+    try { authSessionStore.setItem('nexdare_auth', JSON.stringify(authState)); } catch (e2) {}
+    return false;
+  }
+};
+const setAuthTokens = async (tk, user) => {
   authState = {
     idToken: tk.idToken,
     refreshToken: tk.refreshToken,
     exp: tk.expiresIn ? Date.now() + Number(tk.expiresIn) * 1000 : 0,
+    uid: (user && user.uid) || authState.uid || '',
+    email: (user && user.email) || authState.email || '',
   };
-  saveAuthState();
+  authHydrated = true;
+  await saveAuthState();
 };
 const clearAuthTokens = () => {
-  authState = { idToken: null, refreshToken: null, exp: 0 };
+  authState = { idToken: null, refreshToken: null, exp: 0, uid: '', email: '' };
+  authHydrated = true;
   try { authSessionStore.removeItem('nexdare_auth'); localStorage.removeItem('nexdare_auth'); } catch (e) {}
+  identityDbDelete('auth').catch(() => {});
 };
 let refreshing = null;
-const refreshIdToken = () => {
+const refreshIdToken = async () => {
+  await loadAuthState();
+  if (!authState.refreshToken) throw new Error('No refresh token');
   if (refreshing) return refreshing;
   refreshing = (async () => {
     const res = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FIREBASE_API_KEY, {
@@ -142,22 +195,29 @@ const refreshIdToken = () => {
       body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(authState.refreshToken),
     });
     const d = await res.json();
-    if (!res.ok) throw new Error('Token refresh fail');
+    if (!res.ok) throw new Error((d && d.error && d.error.message) || 'Token refresh fail');
     authState = {
       idToken: d.id_token,
       refreshToken: d.refresh_token || authState.refreshToken,
       exp: Date.now() + Number(d.expires_in) * 1000,
+      uid: authState.uid || '',
+      email: authState.email || '',
     };
-    saveAuthState();
+    await saveAuthState();
     return authState.idToken;
   })();
   refreshing.then(() => { refreshing = null; }, () => { refreshing = null; });
   return refreshing;
 };
 const getToken = async () => {
+  await loadAuthState();
   if (!authState.refreshToken && !authState.idToken) return null;
   if (!authState.idToken || Date.now() > authState.exp - 60000) {
-    try { await refreshIdToken(); } catch (e) {}
+    try { await refreshIdToken(); }
+    catch (e) {
+      // Never treat an expired ID token as an active login when refresh fails.
+      if (!authState.idToken || !authState.exp || Date.now() >= authState.exp) return null;
+    }
   }
   return authState.idToken;
 };
@@ -1340,15 +1400,48 @@ export default function App() {
   const skins = SKINS;
 
   useEffect(() => {
+    let cancelled = false;
+    const restoreSession = async () => {
+      try {
+        await loadAuthState();
+        let user = null;
+        try { user = JSON.parse(privateGetItem('nexdare_user') || 'null'); } catch (e) {}
+        if (authState.refreshToken) {
+          // Refresh/validate the session before restoring the signed-in UI.
+          const activeToken = await getToken();
+          if (!activeToken) {
+            clearAuthTokens();
+            privateRemoveItem('nexdare_user');
+            return;
+          }
+          // UID/email are the only user fields kept persistently with the refresh token.
+          if (!user || !user.uid) {
+            user = authState.uid ? { uid: authState.uid, email: authState.email || '' } : null;
+          }
+          if (user && user.uid) {
+            try {
+              const snap = await get(ref(db, 'users/' + user.uid));
+              if (snap.exists()) user = { ...user, ...snap.val(), uid: user.uid, email: user.email || snap.val().email || authState.email || '' };
+            } catch (e) {
+              // Keep the minimal cached identity for temporary network outages.
+            }
+            if (!cancelled) {
+              setCurrentUser(user);
+              setIsLoggedIn(true);
+              setProfile((prev) => ({ ...prev, name: user.name || '', bio: user.bio || '', avatar: user.avatar || '😎', gender: user.gender || prev.gender || '' }));
+              privateSetItem('nexdare_user', JSON.stringify(user));
+            }
+          } else if (!cancelled) {
+            // Do not create a logged-in UI state if we cannot identify the account safely.
+            privateRemoveItem('nexdare_user');
+          }
+        } else if (user) {
+          privateRemoveItem('nexdare_user');
+        }
+      } catch (e) {}
+    };
+    restoreSession();
     try {
-      const savedUser = privateGetItem('nexdare_user');
-      if (savedUser) {
-        const user = JSON.parse(savedUser);
-        if (user && user.email && user.uid && authState.refreshToken) {
-          setCurrentUser(user); setIsLoggedIn(true);
-          setProfile((prev) => ({ ...prev, name: user.name || '', bio: user.bio || '', avatar: user.avatar || '😎', gender: user.gender || prev.gender || '' }));
-        } else privateRemoveItem('nexdare_user');
-      }
       const p = JSON.parse(privateGetItem('nexdare_profile') || '{}');
       if (p.name || p.bio) setProfile((prev) => ({ ...prev, ...p }));
       const s1 = localStorage.getItem('nexdare_sound'); if (s1 !== null) setSoundOn(s1 === '1');
@@ -1358,6 +1451,7 @@ export default function App() {
       setMyPhotoHd(privateGetItem('nexdare_myphotohd') || '');
       setBgPhoto(privateGetItem('nexdare_bgphoto') || '');
     } catch (e) {}
+    return () => { cancelled = true; };
   }, []);
 
   const saveProfile = (p) => {
@@ -1422,7 +1516,7 @@ export default function App() {
   const sendVerifyMail = async (token) => { await authCall('accounts:sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: token }); };
 
   const finishLogin = async (uid, mail, extra, tokens) => {
-    if (tokens) setAuthTokens(tokens);
+    if (tokens) await setAuthTokens(tokens, { uid, email: mail });
     let reactivated = false;
     let cancelledDelete = false;
     let userData = { uid, email: mail, name: profile.name || (extra && extra.name) || '', bio: profile.bio || '', avatar: profile.avatar || '😎', lastLogin: Date.now() };
@@ -3072,7 +3166,7 @@ export default function App() {
       if (acctHasPw) {
         if (!acctPass) throw new Error('Password likho');
         const data = await authCall('accounts:signInWithPassword', { email: currentUser.email, password: acctPass, returnSecureToken: true });
-        setAuthTokens({ idToken: data.idToken, refreshToken: data.refreshToken, expiresIn: data.expiresIn });
+        await setAuthTokens({ idToken: data.idToken, refreshToken: data.refreshToken, expiresIn: data.expiresIn });
       }
       if (otpOn) {
         const o = otpRef.current;
