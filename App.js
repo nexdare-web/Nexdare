@@ -119,7 +119,7 @@ const onValue = (r, cb) => {
   };
   listeners.add(poll);
   poll();
-  const timer = setInterval(poll, 1500);
+  const timer = setInterval(poll, 600);
   return () => { stopped = true; clearInterval(timer); listeners.delete(poll); };
 };
 
@@ -209,12 +209,6 @@ const loadIdentity = async () => {
   try { localStorage.setItem('nexdare_id_v1', JSON.stringify({ sid, pub, priv: privJwk })); } catch (e) {}
   sessionIdentity = { sid, pub, priv: kp.privateKey };
   return sessionIdentity;
-};
-
-const resetIdentity = () => { sessionIdentity = null; };
-const pbkdf2Key = async (pass, salt) => {
-  const base = await subtle.importKey('raw', enc8(pass), 'PBKDF2', false, ['deriveKey']);
-  return subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 };
 
 const deriveShared = async (priv, otherPub) => {
@@ -949,16 +943,6 @@ const compressImageTo = (dataUrl, max, q) => new Promise((res, rej) => {
 });
 // ===== GAMES + COUPLE DATA END =====
 
-// ---- Security switch: jab tak Firebase Rules pakke na ho, ye 5 features band hain (code delete nahi hua). Rules theek hone ke baad true karke on kar sakte ho ----
-const FEATURES = { stranger: false, groups: false, secretChat: false, rooms: false, couple: false };
-const BLOCKED_SCREENS = { stranger: 'stranger', groups: 'groups', chat: 'secretChat', join: 'rooms', room: 'rooms', tdhub: 'rooms', couple: 'couple', daily: 'couple', mem: 'couple', album: 'couple', notes: 'couple', wyr: 'couple', nhie: 'couple', quiz: 'couple', ttt: 'couple' };
-const screenBlocked = (sc) => {
-  if (sc === 'games') return !FEATURES.rooms && !FEATURES.couple;
-  return !!BLOCKED_SCREENS[sc] && !FEATURES[BLOCKED_SCREENS[sc]];
-};
-
-const ukey = (u) => String(u).replace(/\./g, ',');
-
 export default function App() {
   const [page, setPage] = useState(1);
   const [screen, setScreen] = useState('home');
@@ -972,21 +956,21 @@ export default function App() {
       l.setAttribute('href', href);
       if (type) l.setAttribute('type', type);
     };
-    document.title = 'NexDare – Truth or Dare, Private Chats & Games';
+    document.title = 'NexDare – Chat, Games & Truth or Dare';
     const setMeta = (name, content) => {
       let m = document.querySelector('meta[name="' + name + '"]');
       if (!m) { m = document.createElement('meta'); m.setAttribute('name', name); document.head.appendChild(m); }
       m.setAttribute('content', content);
     };
     setMeta('theme-color', '#000000');
-    setMeta('description', 'Play Truth or Dare with friends. Chat privately with end-to-end encrypted messages, share stories and enjoy fun games.');
+    setMeta('description', 'NexDare is a Truth or Dare, chat and games app for friends and couples. Private encrypted chats, group chats, stories, Tic Tac Toe, love quiz and more. Play now!');
     setLink('icon', ICON_URI, 'image/png');
     setLink('apple-touch-icon', ICON_URI);
   }, []);
   const splashAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(splashAnim, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-    const timer = setTimeout(() => setShowSplash(false), 1250);
+    const timer = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timer);
   }, []);
   const [role, setRole] = useState(null);
@@ -1084,16 +1068,10 @@ export default function App() {
   const [viewer, setViewer] = useState(null);
   const [viewerHd, setViewerHd] = useState('');
   const [langOpen, setLangOpen] = useState(false);
-  const [ageOk, setAgeOk] = useState(false);
-  const [kbPass, setKbPass] = useState('');
-  const [kbPass2, setKbPass2] = useState('');
-  const [kbBusy, setKbBusy] = useState(false);
-  const [kbHas, setKbHas] = useState(false);
   const [cam, setCam] = useState(null);
   const [dmPlus, setDmPlus] = useState(false);
   const [nicks, setNicks] = useState({});
   const [nickEdit, setNickEdit] = useState(null);
-  const [pins, setPins] = useState({});
   const [nicksShared, setNicksShared] = useState({});
   const [strState, setStrState] = useState('idle');
   const [strRoom, setStrRoom] = useState(null);
@@ -1390,16 +1368,14 @@ export default function App() {
 
   const claimUsername = async () => {
     const uname = usernameInput.trim().toLowerCase().replace(/^@/, '');
-    if (!/^(?!\.)(?!.*\.\.)(?!.*\.$)[a-z0-9._]{3,20}$/.test(uname)) { setError('Username must be 3-20 characters: letters, numbers, dots and underscores. No dot at the start or end, and no double dots.'); return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(uname)) { setError('Username 3 se 20 akshar ka ho: sirf a-z, 0-9 aur _'); return; }
     if (!currentUser || !currentUser.uid) return;
-    if (!ageOk) { setError('Pehle neeche tick karo: umar 13 saal ya zyada hai'); return; }
     setAuthLoading(true); setError(''); setNotice('');
     try {
-      const snap = await get(ref(db, 'usernames/' + ukey(uname)));
+      const snap = await get(ref(db, 'usernames/' + uname));
       if (snap.exists() && snap.val() !== currentUser.uid) { setError('Ye username kisi ne le liya hai, doosra chuno.'); setAuthLoading(false); return; }
-      await set(ref(db, 'usernames/' + ukey(uname)), currentUser.uid);
+      await set(ref(db, 'usernames/' + uname), currentUser.uid);
       await set(ref(db, 'profiles/' + currentUser.uid), { username: uname, name: currentUser.name || uname, avatar: currentUser.avatar || '😎', bio: currentUser.bio || '', photo: myPhoto || '' });
-      await update(ref(db, 'users/' + currentUser.uid), { ageOk: true, ageAt: Date.now() }).catch(() => {});
       const updated = { ...currentUser, username: uname, name: currentUser.name || uname };
       localStorage.setItem('nexdare_user', JSON.stringify(updated));
       setCurrentUser(updated); setUsernameInput('');
@@ -1414,7 +1390,7 @@ export default function App() {
     if (uname === currentUser.username) { setError('Khud ko add nahi kar sakte 😄'); return; }
     setError(''); setNotice('');
     try {
-      const snap = await get(ref(db, 'usernames/' + ukey(uname)));
+      const snap = await get(ref(db, 'usernames/' + uname));
       if (!snap.exists()) { setError('Ye username nahi mila. Spelling check karo.'); return; }
       const targetUid = snap.val();
       try { const dp = await call('GET', 'profiles/' + targetUid + '/deactivated'); if (dp) { setError('Ye username nahi mila. Spelling check karo.'); return; } } catch (e) {}
@@ -2892,7 +2868,7 @@ export default function App() {
     await update(ref(db, 'profiles/' + uid), { deactivated: true, deleteAt: at });
     await set(ref(db, 'presence/' + uid), { t: 0, on: false, hide: true }).catch(() => {});
     logout(); setScreen('home'); setAcctMode(null);
-    setNotice('Deletion scheduled. Log in within 15 days to cancel.');
+    setNotice('Account 15 din baad delete hoga. Is beech login karoge to delete cancel ho jayega.');
   };
   const confirmAcct = async () => {
     if (!acctMode || !currentUser) return;
@@ -2924,39 +2900,27 @@ export default function App() {
     if (!isLoggedIn || !currentUser || !currentUser.uid || !currentUser.username) return;
     call('GET', 'users/' + currentUser.uid + '/nicks').then((v) => setNicks(v || {})).catch(() => {});
     call('GET', 'closeFriends/' + currentUser.uid).then((v) => setCloseSet(v || {})).catch(() => {});
-    call('GET', 'users/' + currentUser.uid + '/pins').then((v) => setPins(v || {})).catch(() => {});
   }, [isLoggedIn, currentUser && currentUser.uid]);
-  const togglePin = async (uid) => {
-    const on = !pins[uid];
-    setPins((p) => { const n = { ...p }; if (on) n[uid] = Date.now(); else delete n[uid]; return n; });
-    setFriendMenu(null);
-    setNotice(on ? 'Pinned to Primary' : 'Removed from Primary');
-    try {
-      if (on) await set(ref(db, 'users/' + currentUser.uid + '/pins/' + uid), Date.now());
-      else await remove(ref(db, 'users/' + currentUser.uid + '/pins/' + uid));
-    } catch (e) { setError('Could not update Primary'); }
-  };
   const sharedNick = (f) => { const c = nicksShared[f.chatId]; return c && c[f.uid] && c[f.uid].n ? c[f.uid].n : ''; };
   const nameOf = (f) => sharedNick(f) || nicks[f.uid] || f.name || f.username;
   const saveNick = async (uid, text) => {
     const v = text.trim();
-    const f = dmFriend;
+    const f = cloudFriends[uid];
     setNickEdit(null);
-    if (!currentUser || uid !== currentUser.uid || !f || !f.chatId) return;
+    if (!f || !f.chatId) {
+      setNicks((p) => { const n = { ...p }; if (v) n[uid] = v; else delete n[uid]; return n; });
+      return;
+    }
     const cid = f.chatId;
-    const cur = nicksShared[cid] && nicksShared[cid][uid] ? nicksShared[cid][uid].n : '';
-    if (v === cur) return;
     const rec = { n: v, by: currentUser.uid, t: Date.now() };
     setNicksShared((p) => { const c = { ...(p[cid] || {}) }; if (v) c[uid] = rec; else delete c[uid]; return { ...p, [cid]: c }; });
     try {
       if (v) await set(ref(db, 'couples/' + cid + '/nicks/' + uid), rec);
       else await remove(ref(db, 'couples/' + cid + '/nicks/' + uid));
-    } catch (e) { setError('Could not save nickname: ' + e.message); return; }
-    if (dmShared) {
+    } catch (e) { setError('Nickname save nahi hua: ' + e.message); return; }
+    if (v && screen === 'dm' && dmShared && dmFriend && dmFriend.uid === uid) {
       try {
-        const when = new Date().toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-        const msg = myDisplayName() + ' changed their nickname from "' + (cur || myDisplayName()) + '" to "' + (v || myDisplayName()) + '" · ' + when;
-        const enc = await encryptText(dmShared.aes, JSON.stringify({ __s: 1, t: msg }));
+        const enc = await encryptText(dmShared.aes, JSON.stringify({ __s: 1, t: myDisplayName() + ' ne nickname rakha: ' + v }));
         await push(ref(db, 'dm/' + cid + '/messages'), { from: currentUser.uid, iv: enc.iv, ct: enc.ct, t: Date.now() });
       } catch (e) {}
     }
@@ -3243,55 +3207,6 @@ export default function App() {
     } catch (e) { setError('Save nahi hua: ' + e.message); }
   };
 
-  // ---- Chat key backup (passphrase se lock) ----
-  useEffect(() => {
-    if (screen !== 'keybackup' || !currentUser) return;
-    call('GET', 'users/' + currentUser.uid + '/keyBackup/t').then((v) => setKbHas(!!v)).catch(() => {});
-  }, [screen]);
-  const doKeyBackup = async () => {
-    if (!subtle || !currentUser) { setError('Backup ke liye browser chahiye'); return; }
-    if (kbPass.length < 8) { setError('Passphrase kam se kam 8 akshar ka rakho'); return; }
-    if (kbPass !== kbPass2) { setError('Dono passphrase same nahi hain'); return; }
-    setKbBusy(true); setError(''); setNotice('');
-    try {
-      await loadIdentity();
-      const stored = localStorage.getItem('nexdare_id_v1');
-      if (!stored) throw new Error('Key nahi mili');
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await pbkdf2Key(kbPass, salt);
-      const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, key, enc8(stored));
-      await set(ref(db, 'users/' + currentUser.uid + '/keyBackup'), { v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct), t: Date.now() });
-      setKbHas(true); setKbPass(''); setKbPass2('');
-      setNotice('Backup ho gaya ✅ Passphrase yaad rakhna.');
-    } catch (e) { setError('Backup nahi hua: ' + e.message); }
-    setKbBusy(false);
-  };
-  const doKeyRestore = async () => {
-    if (!subtle || !currentUser) { setError('Restore ke liye browser chahiye'); return; }
-    if (!kbPass) { setError('Passphrase likho'); return; }
-    setKbBusy(true); setError(''); setNotice('');
-    try {
-      const v = await call('GET', 'users/' + currentUser.uid + '/keyBackup');
-      if (!v || !v.ct) throw new Error('Is account ka backup nahi mila');
-      const key = await pbkdf2Key(kbPass, unb64(v.salt));
-      let plain;
-      try { plain = await subtle.decrypt({ name: 'AES-GCM', iv: unb64(v.iv) }, key, unb64(v.ct)); }
-      catch (e) { throw new Error('Passphrase galat hai'); }
-      const txt = new TextDecoder().decode(plain);
-      const st = JSON.parse(txt);
-      if (!st.pub || !st.priv || !st.sid) throw new Error('Backup kharab hai');
-      localStorage.setItem('nexdare_id_v1', txt);
-      resetIdentity();
-      const id = await loadIdentity();
-      await update(ref(db, 'profiles/' + currentUser.uid), { pub: id.pub });
-      setKbPass('');
-      setNotice('Key wapas aa gayi ✅ Page refresh ho raha hai...');
-      setTimeout(() => { try { window.location.reload(); } catch (e) {} }, 1300);
-    } catch (e) { setError('Restore nahi hua: ' + e.message); }
-    setKbBusy(false);
-  };
-
   // ---- Album ----
   const albumLoad = async () => {
     if (!pal || !palAes) return;
@@ -3368,7 +3283,7 @@ export default function App() {
         await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
       }
       const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
-      if (currentUser.username) paths.push('usernames/' + ukey(currentUser.username));
+      if (currentUser.username) paths.push('usernames/' + currentUser.username);
       for (const p of paths) await remove(ref(db, p)).catch(() => {});
       clearAllData(); logout(); setDelConfirm(false); setScreen('home'); setAcctMode(null);
       setNotice('Account delete ho gaya.');
@@ -3381,30 +3296,20 @@ export default function App() {
     try { uname = (await call('GET', 'profiles/' + uid + '/username')) || ''; } catch (e) {}
     let friends = {};
     try { friends = (await call('GET', 'friends/' + uid)) || {}; } catch (e) {}
-    const mine = 'orderBy=%22from%22&equalTo=%22' + uid + '%22';
-    for (const k of Object.keys(friends)) {
-      const f = friends[k];
-      if (f && f.chatId) {
-        // apni bheji hui messages aur files hatao (dost ki apni messages unke paas rehti hain)
-        for (const part of ['messages', 'files']) {
-          try {
-            const mm = (await call('GET', 'dm/' + f.chatId + '/' + part, undefined, mine)) || {};
-            for (const id of Object.keys(mm)) await remove(ref(db, 'dm/' + f.chatId + '/' + part + '/' + id)).catch(() => {});
-          } catch (e) {}
-        }
-        await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
-      }
-      await remove(ref(db, 'friends/' + k + '/' + uid)).catch(() => {});
-      await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
-    }
-    const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'stories/' + uid, 'closeFriends/' + uid, 'leaderboard/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
-    if (uname) paths.push('usernames/' + ukey(uname));
-    for (const p2 of paths) await remove(ref(db, p2)).catch(() => {});
     const tok = await getToken();
     const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:delete?key=' + FIREBASE_API_KEY, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: tok }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d.error && d.error.message) || 'delete failed'); }
+    for (const k of Object.keys(friends)) {
+      const f = friends[k];
+      await remove(ref(db, 'friends/' + k + '/' + uid)).catch(() => {});
+      await remove(ref(db, 'friends/' + uid + '/' + k)).catch(() => {});
+      if (f && f.chatId) await remove(ref(db, 'couples/' + f.chatId)).catch(() => {});
+    }
+    const paths = ['friendReqs/' + uid, 'userGroups/' + uid, 'blocks/' + uid, 'profiles/' + uid, 'users/' + uid, 'presence/' + uid];
+    if (uname) paths.push('usernames/' + uname);
+    for (const p2 of paths) await remove(ref(db, p2)).catch(() => {});
   };
   // ===== GAMES + COUPLE SPACE + SAFETY END =====
 
@@ -3413,11 +3318,10 @@ export default function App() {
   const visible = plain.filter((m) => !hidden.includes(m.key));
   const dmVisible = dmPlain.filter((m) => !dmHidden.includes(m.key));
   const grpVisible = grpPlain.filter((m) => !grpHidden.includes(m.key));
-  useEffect(() => { if (screenBlocked(screen)) { setScreen('home'); setPage(3); } }, [screen]);
   const mbH = { maxHeight: Math.max(280, (typeof window !== 'undefined' ? window.innerHeight : 700) - 330) };
   const nickPanel = () => (nickEdit ? (
     <View style={s.joinRow}>
-      <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Your nickname (visible to both)" placeholderTextColor={PH} maxLength={24}
+      <TextInput style={[s.i, { flex: 1, width: 'auto', marginVertical: 0 }]} placeholder="Nickname (dono ko dikhega)" placeholderTextColor={PH} maxLength={24}
         value={nickEdit.text} onChangeText={(v) => setNickEdit({ ...nickEdit, text: v })} onSubmitEditing={() => saveNick(nickEdit.uid, nickEdit.text)} />
       <TouchableOpacity style={[s.roundBtn, { backgroundColor: th.accent }]} onPress={() => saveNick(nickEdit.uid, nickEdit.text)}><Text style={s.roundT}>✓</Text></TouchableOpacity>
     </View>
@@ -3539,8 +3443,8 @@ export default function App() {
       </View>
     );
   };
-  const chatRow = ({ rowKey, uri, emoji, title, sub, time, badge, onPress, onMore, onLong, online, getHd }) => (
-    <TouchableOpacity key={rowKey} activeOpacity={0.6} style={s.chatRow} onPress={onPress} onLongPress={onLong || onMore} delayLongPress={onLong ? 2000 : 500}>
+  const chatRow = ({ rowKey, uri, emoji, title, sub, time, badge, onPress, onMore, online, getHd }) => (
+    <TouchableOpacity key={rowKey} activeOpacity={0.6} style={s.chatRow} onPress={onPress} onLongPress={onMore}>
       <View>
         <View style={s.avWrap}><Pic uri={uri} emoji={emoji} size={52} name={title} getHd={getHd} /></View>
         {!!online && <View style={s.onDot} />}
@@ -3662,7 +3566,7 @@ export default function App() {
   const needUsername = isLoggedIn && !!currentUser && !currentUser.username;
   const friendSeen = dmFriend ? (dmSeen[dmFriend.uid] || 0) : 0;
   const partnerName = chatData && chatData.names && ident ? (Object.keys(chatData.names).filter((k) => k !== ident.sid).map((k) => chatData.names[k])[0] || t('partner')) : t('partner');
-  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'acct', 'keybackup', 'storynew', 'closefr', 'stranger', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
+  const full = inChat || inDm || inGame || ['profile', 'friends', 'groups', 'style', 'settings', 'acct', 'storynew', 'closefr', 'stranger', 'couple', 'daily', 'mem', 'album', 'notes', 'wyr', 'nhie', 'quiz'].includes(screen);
   const sc = { alignItems: 'center', paddingBottom: 40, width: '100%' };
   const PH = '#ffffff88';
 
@@ -4006,11 +3910,6 @@ export default function App() {
           <Text style={[s.welcome, { color: th.accent2 }]}>Nexdare</Text>
           <Text style={[s.q, { color: th.accent2 }]}>Username chuno</Text>
           <TextInput style={s.i} placeholder="Username" placeholderTextColor={PH} autoCapitalize="none" value={usernameInput} onChangeText={setUsernameInput} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '90%', marginVertical: 8 }}>
-            <Switch value={ageOk} onValueChange={setAgeOk} />
-            <Text style={[s.sm, { flex: 1, marginLeft: 10, textAlign: 'left' }]}>Meri umar 13 saal ya usse zyada hai, aur main Privacy Policy se sehmat hoon</Text>
-          </View>
-          <Nav label="📄 Privacy Policy padho" onPress={() => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e')} />
           <Btn label={authLoading ? 'Ruko...' : t('save')} onPress={claimUsername} />
           <Nav label={t('logout')} onPress={logout} />
           {!!error && <Text style={[s.sm, { color: '#ff6b6b' }]}>{error}</Text>}
@@ -4027,11 +3926,11 @@ export default function App() {
         </>)}
 
         {screen === 'games' && (<>
-          {FEATURES.rooms && <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />}
-          {FEATURES.couple && <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />}
-          {FEATURES.couple && <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />}
-          {FEATURES.couple && <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />}
-          {FEATURES.couple && <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />}
+          <Btn label="🔥 Truth or Dare Battle" onPress={() => { setError(''); setNotice(''); setScreen('tdhub'); }} />
+          <Btn label="🤔 Would You Rather" onPress={() => goScreen('wyr')} />
+          <Btn label="🙈 Never Have I Ever" onPress={() => goScreen('nhie')} />
+          <Btn label="💘 Love Quiz" onPress={() => goScreen('quiz')} />
+          <Btn label="⭕ Tic Tac Toe" onPress={() => goScreen('ttt')} />
           <Nav label={t('back')} onPress={backToTools} />
         </>)}
 
@@ -4048,11 +3947,11 @@ export default function App() {
         </>)}
 
         {screen === 'home' && page === 3 && (<>
-          {(FEATURES.rooms || FEATURES.couple) && <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />}
-          {FEATURES.groups && <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />}
-          {FEATURES.stranger && <Btn label="🌍 Stranger Chat" onPress={() => { setError(''); setNotice(''); setScreen('stranger'); }} />}
+          <Btn label="🎮 NexGames" onPress={() => { setError(''); setNotice(''); setScreen('games'); }} />
+          <Btn label={t('chat')} onPress={() => { setError(''); setNotice(''); setScreen('groups'); }} />
+          <Btn label="🌍 Stranger Chat" onPress={() => { setError(''); setNotice(''); setScreen('stranger'); }} />
           <Btn label={t('friends') + (totalUnread ? '  🔴 ' + (totalUnread >= 20 ? '20+' : totalUnread) : '')} onPress={() => { setError(''); setNotice(''); setScreen('friends'); }} />
-          {FEATURES.couple && <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />}
+          <Btn label="💞 Couple Space" onPress={() => goScreen('couple')} />
           <Btn label={t('profile')} onPress={() => setScreen('profile')} />
           <Btn label={t('settings')} onPress={() => setScreen('settings')} />
           <Nav label={t('back')} onPress={() => setPage(1)} />
@@ -4203,12 +4102,9 @@ export default function App() {
             <Text style={[s.q, { color: th.accent2 }]}>{t('friends')}</Text>
             {Object.keys(cloudFriends).length === 0 ? <Text style={s.sm}>{t('noFriends')}</Text> : (
               <View style={{ width: '100%' }}>
-                {(() => {
-                  const all = Object.keys(cloudFriends).map((k) => cloudFriends[k])
-                    .sort((a, b) => ((previews[b.chatId] && previews[b.chatId].t) || 0) - ((previews[a.chatId] && previews[a.chatId].t) || 0));
-                  const pinned = all.filter((f) => pins[f.uid]);
-                  const rest = all.filter((f) => !pins[f.uid]);
-                  const row = (f) => {
+                {Object.keys(cloudFriends).map((k) => cloudFriends[k])
+                  .sort((a, b) => ((previews[b.chatId] && previews[b.chatId].t) || 0) - ((previews[a.chatId] && previews[a.chatId].t) || 0))
+                  .map((f) => {
                     const pv = previews[f.chatId];
                     const un = unread[f.chatId] || 0;
                     return (
@@ -4218,27 +4114,19 @@ export default function App() {
                           sub: deactMap[f.uid] ? '🚫 Account deactivated' : pv ? (pv.mine ? 'You: ' : '') + pv.text : '@' + f.username,
                           time: pv ? fmtListTime(pv.t) : '', badge: un,
                           onPress: () => openDm(f), onMore: () => setFriendMenu(friendMenu === f.uid ? null : f.uid),
-                          onLong: () => togglePin(f.uid),
                           getHd: hdOf(f.uid), online: !deactMap[f.uid] && isOnline(presMap[f.uid]),
                         })}
+                        {!!nickEdit && nickEdit.uid === f.uid && nickPanel()}
                         {friendMenu === f.uid && (
                           <View style={s.miniRow}>
-                            <Mini label={pins[f.uid] ? '📌 Remove from Primary' : '📌 Pin to Primary'} onPress={() => togglePin(f.uid)} />
+                            <Mini label="✏️ Nickname" onPress={() => { setFriendMenu(null); setNickEdit({ uid: f.uid, text: sharedNick(f) || nicks[f.uid] || '' }); }} />
                             <Mini label={t('remove')} onPress={() => { setFriendMenu(null); removeCloudFriend(f); }} />
                             <Mini label={t('cancel')} onPress={() => setFriendMenu(null)} />
                           </View>
                         )}
                       </View>
                     );
-                  };
-                  return (<>
-                    {pinned.length > 0 && <Text style={s.secHead}>📌 PRIMARY</Text>}
-                    {pinned.map(row)}
-                    {pinned.length > 0 && <Text style={s.secHead}>ALL CHATS</Text>}
-                    {rest.map(row)}
-                    <Text style={s.hint}>Tip: press and hold a chat for 2 seconds to pin it, or use the ⋮ menu.</Text>
-                  </>);
-                })()}
+                  })}
               </View>
             )}
             <Nav label={t('back')} onPress={() => setScreen('home')} />
@@ -4435,13 +4323,13 @@ export default function App() {
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={[s.code2, { color: th.accent2, marginBottom: 0 }]}>{sharedNick(dmFriend) || nicks[dmFriend.uid] || (dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>
               {!!(sharedNick(dmFriend) || nicks[dmFriend.uid]) && <Text style={s.cardS}>{(dmProf && dmProf.name) || dmFriend.name || dmFriend.username}</Text>}
-              {!!(nicksShared[dmFriend.chatId] && nicksShared[dmFriend.chatId][myUid]) && <Text style={s.cardS}>Your nickname: {nicksShared[dmFriend.chatId][myUid].n}</Text>}
+              {!!(nicksShared[dmFriend.chatId] && nicksShared[dmFriend.chatId][myUid]) && <Text style={s.cardS}>Tumhara nickname: {nicksShared[dmFriend.chatId][myUid].n}</Text>}
               {!!presText(presMap[dmFriend.uid]) && <Text style={[s.cardS, isOnline(presMap[dmFriend.uid]) ? { color: '#25d366' } : null]}>{presText(presMap[dmFriend.uid])}</Text>}
             </View>
             {!!dmShared && <TouchableOpacity style={s.attachBtn} onPress={startDmCall}><Text style={s.bt}>📹</Text></TouchableOpacity>}
             <TouchableOpacity style={s.attachBtn} onPress={() => setDmMenu(dmMenu ? '' : 'menu')}><Text style={s.bt}>⋮</Text></TouchableOpacity>
           </View>
-          {!!nickEdit && nickEdit.uid === myUid && nickPanel()}
+          {!!nickEdit && nickEdit.uid === dmFriend.uid && nickPanel()}
           {!!dmMenu && (
             <View style={s.miniRow}>
               {dmMenu === 'report' ? (<>
@@ -4454,7 +4342,7 @@ export default function App() {
               </>) : (<>
                 <Mini label={dmMenu === 'blockConfirm' ? 'Pakka block?' : '🚫 Block'} onPress={() => (dmMenu === 'blockConfirm' ? blockUser(dmFriend) : setDmMenu('blockConfirm'))} />
                 <Mini label="⚠️ Report" onPress={() => setDmMenu('report')} />
-                <Mini label="✏️ My nickname" onPress={() => { setDmMenu(''); setNickEdit({ uid: myUid, text: (nicksShared[dmFriend.chatId] && nicksShared[dmFriend.chatId][myUid] && nicksShared[dmFriend.chatId][myUid].n) || '' }); }} />
+                <Mini label="✏️ Nickname" onPress={() => { setDmMenu(''); setNickEdit({ uid: dmFriend.uid, text: sharedNick(dmFriend) || nicks[dmFriend.uid] || '' }); }} />
                 <Mini label="🧹 Clear chat" onPress={() => setDmMenu('clear')} />
               </>)}
               <Mini label={t('cancel')} onPress={() => setDmMenu('')} />
@@ -4616,20 +4504,6 @@ export default function App() {
           </ScrollView>
         )}
 
-        {screen === 'keybackup' && (
-          <ScrollView contentContainerStyle={sc}>
-            <Text style={[s.q, { color: th.accent2 }]}>🔑 Chat key backup</Text>
-            <Text style={s.sm}>Tumhari chat ko lock karne wali key sirf is phone me rehti hai. Phone badalne ya app data clear karne par purani chat nahi khulti. Backup se wo wapas aa jati hai.</Text>
-            <Text style={s.hint}>{kbHas ? '✅ Backup bana hua hai' : 'Abhi backup nahi hai'}</Text>
-            <TextInput style={s.i} placeholder="Passphrase (kam se kam 8 akshar)" placeholderTextColor={PH} secureTextEntry autoCapitalize="none" value={kbPass} onChangeText={setKbPass} />
-            <TextInput style={s.i} placeholder="Passphrase dobara (backup banane ke liye)" placeholderTextColor={PH} secureTextEntry autoCapitalize="none" value={kbPass2} onChangeText={setKbPass2} />
-            <Btn label={kbBusy ? 'Ruko...' : '💾 Backup banao / naya karo'} onPress={doKeyBackup} />
-            <Btn label={kbBusy ? 'Ruko...' : '♻️ Backup se wapas laao'} onPress={doKeyRestore} />
-            <Text style={s.hint}>Passphrase yaad rakho. Bhool gaye to backup nahi khulega aur koi (main bhi) wapas nahi la sakta. Lamba aur anokha passphrase rakho. Wapas laane par is phone ki abhi ki key badal jati hai.</Text>
-            <Nav label={t('back')} onPress={() => setScreen('settings')} />
-          </ScrollView>
-        )}
-
         {screen === 'acct' && (
           <ScrollView contentContainerStyle={sc}>
             <Text style={[s.q, { color: th.accent2 }]}>Account</Text>
@@ -4641,11 +4515,11 @@ export default function App() {
               </TouchableOpacity>
               <TouchableOpacity style={[s.acctCard, { borderColor: '#ff6b6b88' }]} onPress={() => startAcct('delete')}>
                 <Text style={[s.acctT, { color: '#ff8a8a' }]}>🗑️  Permanently delete</Text>
-                <Text style={s.acctS}>Your account is scheduled for deletion after 15 days. Log in within 15 days to cancel. Deletion is completed the next time you log in after that.</Text>
+                <Text style={s.acctS}>15 din ke baad account aur saara data hamesha ke liye hat jayega. In 15 din me login karoge to delete cancel ho jayega.</Text>
               </TouchableOpacity>
             </>) : (<>
               <Text style={[s.q, { color: acctMode === 'delete' ? '#ff8a8a' : th.accent2 }]}>{acctMode === 'delete' ? '🗑️ Permanently delete' : '⏸️ Deactivate'}</Text>
-              <Text style={s.sm}>{acctMode === 'delete' ? 'Your account will be scheduled for deletion. Log in within 15 days to cancel. Please verify first:' : 'Pehle verify karo:'}</Text>
+              <Text style={s.sm}>{acctMode === 'delete' ? 'Account 15 din baad delete hoga. Is beech login karoge to cancel ho jayega. Pehle verify karo:' : 'Pehle verify karo:'}</Text>
               {acctHasPw && <TextInput style={s.i} placeholder="Apna password" placeholderTextColor={PH} secureTextEntry autoCapitalize="none" value={acctPass} onChangeText={setAcctPass} />}
               {otpOn ? (<>
                 {!acctSent
@@ -4659,7 +4533,7 @@ export default function App() {
                 <Text style={s.sm}>Confirm karne ke liye neeche CONFIRM likho</Text>
                 <TextInput style={s.i} placeholder="CONFIRM" placeholderTextColor={PH} autoCapitalize="characters" value={acctWord} onChangeText={setAcctWord} />
               </>))}
-              <Btn label={acctBusy ? 'Ruko...' : acctMode === 'delete' ? 'Yes, schedule deletion' : 'Deactivate karo'} onPress={confirmAcct} />
+              <Btn label={acctBusy ? 'Ruko...' : acctMode === 'delete' ? 'Haan, 15 din baad delete karo' : 'Deactivate karo'} onPress={confirmAcct} />
               <Nav label={t('cancel')} onPress={resetAcct} />
             </>)}
             <Nav label={t('back')} onPress={() => { resetAcct(); setScreen('settings'); }} />
@@ -4683,7 +4557,6 @@ export default function App() {
             {setGroup('PRIVACY & SAFETY', [
               { icon: '🟢', title: 'Last seen / online dikhao', sub: 'Band karoge to doosron ka bhi nahi dikhega', right: <Switch value={showSeen} onValueChange={toggleSeen} /> },
               ...Object.keys(blocks).map((k) => ({ key: 'blk' + k, icon: '🚫', title: '@' + blocks[k].username, sub: 'Blocked', right: <Mini label="Unblock" onPress={() => unblockUser(k)} /> })),
-              { icon: '🔑', title: 'Chat key backup', sub: 'Naye phone par purani chat wapas laao', onPress: () => { setError(''); setNotice(''); setKbPass(''); setKbPass2(''); setScreen('keybackup'); } },
               { icon: '📄', title: 'Privacy Policy', onPress: () => Linking.openURL('https://dandelion-metal-55e.notion.site/Nexdare-Privacy-Policy-41dab7c3e245804aaa46ef40d4cc356e') },
             ])}
             {setGroup('SHARE', [
@@ -4964,7 +4837,6 @@ const s = StyleSheet.create({
   stViewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   stViewName: { flex: 1, color: '#fff', fontSize: 15, marginLeft: 10 },
   stViewTime: { color: '#ffffff99', fontSize: 12 },
-  secHead: { color: '#ffffff99', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginTop: 10, marginBottom: 4, alignSelf: 'flex-start', paddingLeft: 14 },
   recT: { color: '#fff', fontWeight: '800', fontSize: 15, backgroundColor: '#000000aa', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   camTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   camChip: { backgroundColor: '#ffffff22', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 14 },
